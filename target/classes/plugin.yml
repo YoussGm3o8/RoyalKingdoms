@@ -1,0 +1,107 @@
+name: RoyalKingdomsCore
+main: com.roki.core.RoyalKingdomsCore
+version: 1.0.0
+api: ["1.1.0"]
+description: Core plugin for Royal Kingdoms Factions Server with faction management, money system, and player interactions.
+author: YoussGm3o8
+website: https://github.com/YoussGm3o8/RoyalKingdoms
+
+commands:
+# server commands
+  setwarp:
+    description: Set a warp at the player's current location
+    usage: /setwarp <name>
+    permission: royalkingdoms.setwarp
+  ping:
+    description: Show your ping to the server
+    usage: /ping
+  spawn:
+    description: Teleport to spawn
+    usage: /spawn
+  sethome:
+    description: Set your home location
+    usage: /sethome
+  removehome:
+    description: Delete your home's location
+    usage: /removehome
+  home:
+    description: Teleport to your home
+    usage: /home
+  warp:
+    description: Teleport to a predefined warp location
+    usage: /warp <warp_name>
+    permission: royalkingdoms.warp
+  scoreboard:
+      description: Toggles the scoreboard display
+      usage: "/scoreboard"
+      permission: royalkingdoms.scoreboard
+  f:
+    description: Factions command with various subcommands
+    usage: "/f <join|leave|info|money|topmoney|deposit|topkills|players>"
+    permission: royalkingdoms.f
+    subcommands:
+      join:
+        description: Join a faction automatically
+        permission: royalkingdoms.joinfaction
+      leave:
+        description: Leave your current faction
+        permission: royalkingdoms.leavefaction
+      info:
+        description: View faction information or information of a specific faction
+        permission: royalkingdoms.f.info
+      money:
+        description: View your faction's money balance
+        permission: royalkingdoms.f.money
+      topmoney:
+        description: View the faction money leaderboard
+        permission: royalkingdoms.f.topmoney
+      deposit:
+        description: Deposit money into your faction's vault
+        permission: royalkingdoms.f.deposit
+      topkills:
+        description: View the top faction kills
+        permission: royalkingdoms.f.topkills
+      players:
+        description: View the players in your faction or in a specific faction
+        permission: royalkingdoms.f.players
+
+permissions:
+  royalkingdoms.setwarp:
+    description: Allows admins to set warp locations
+    default: op  # Only OPs or admins can use this command
+  royalkingdoms.warp: 
+    description: Allows players to use /warp
+    default: true
+  royalkingdoms.scoreboard:
+    description: Allows players to toggle the scoreboard
+    default: true
+  royalkingdoms.joinfaction:
+    description: Allows players to join a faction
+    default: true
+  royalkingdoms.leavefaction:
+    description: Allows players to leave a faction
+    default: true
+  royalkingdoms.f:
+    description: Allows players to use faction commands
+    default: true
+  royalkingdoms.f.info:
+    description: Allows players to view faction information or info about a specific faction
+    default: true
+  royalkingdoms.f.money:
+    description: Allows players to view their faction's money balance
+    default: true
+  royalkingdoms.f.topmoney:
+    description: Allows players to see the faction money leaderboard
+    default: true
+  royalkingdoms.f.topkills:
+    description: Allows players to see the faction top kills leaderboard
+    default: true
+  royalkingdoms.f.players:
+    description: Allows players to see the players in their faction or in another faction
+    default: true
+  royalkingdoms.f.deposit:
+    description: Allows players to deposit money into their faction's vault
+    default: true
+  royalkingdoms.f.admin:
+    description: Allows admins to manage faction settings (e.g., change vault balance)
+    default: op
