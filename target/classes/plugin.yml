@@ -2,11 +2,19 @@ name: RoyalKingdomsCore
 main: com.roki.core.RoyalKingdomsCore
 version: 1.0.0
 api: ["1.1.0"]
+load: STARTUP
 description: Core plugin for Royal Kingdoms Factions Server with faction management, money system, and player interactions.
 author: YoussGm3o8
 website: https://github.com/YoussGm3o8/RoyalKingdoms
 
 commands:
+  summonphoenix:
+    description: Test
+    usage: /summonphoenix
+  summondragon:
+      description: Test
+      usage: /summondragon
+
 # server commands
   setwarp:
     description: Set a warp at the player's current location

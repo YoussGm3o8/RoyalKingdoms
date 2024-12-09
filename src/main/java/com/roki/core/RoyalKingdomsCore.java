@@ -7,6 +7,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.roki.core.Entities.PhoenixEntity;
+import com.roki.core.Entities.DragonEntity;
+import com.roki.core.Entities.GriffinEntity;
+
 import cn.nukkit.Player;
 import cn.nukkit.level.Level;
 import cn.nukkit.level.Location;
@@ -14,6 +18,8 @@ import cn.nukkit.level.Position;
 import cn.nukkit.command.Command;
 import cn.nukkit.command.CommandExecutor;
 import cn.nukkit.command.CommandSender;
+import cn.nukkit.entity.Entity;
+import cn.nukkit.entity.custom.EntityManager;
 import cn.nukkit.plugin.PluginBase;
 import cn.nukkit.utils.Config;
 
@@ -59,6 +65,14 @@ public class RoyalKingdomsCore extends PluginBase {
     }
 
     @Override
+    public void onLoad() {
+        // Entities registration
+        EntityManager.get().registerDefinition(PhoenixEntity.DEFINITION);
+        EntityManager.get().registerDefinition(GriffinEntity.DEFINITION);
+        EntityManager.get().registerDefinition(DragonEntity.DEFINITION);
+    }
+
+    @Override
     public void onEnable() {
         getDataFolder().mkdirs();
         initializePremadeFactions();
@@ -70,7 +84,6 @@ public class RoyalKingdomsCore extends PluginBase {
         FactionCommand factionCommand = new FactionCommand();
         FactionTabCompleter.setupTabCompletion(factionCommand, this);
         getServer().getCommandMap().register("f", factionCommand);
-
 
         getServer().getPluginManager().registerEvents(new FactionEventListener(this), this);
         getLogger().info("Royal Kingdoms Core Plugin has been enabled!");
@@ -105,6 +118,25 @@ public class RoyalKingdomsCore extends PluginBase {
         }
 
         Player player = (Player) sender;
+
+        if (command.getName().equals("summonphoenix")) {
+            Entity entity = Entity.createEntity(PhoenixEntity.IDENTIFIER, (Player) player);
+            if (entity != null) {
+                entity.spawnToAll();
+                player.sendMessage("Phoenix summoned!");
+                return true;
+            }
+        }
+        
+        if (command.getName().equals("summondragon")) {
+            Entity entity = Entity.createEntity(DragonEntity.IDENTIFIER, (Player) player);
+            if (entity != null) {
+                entity.spawnToAll();
+                player.sendMessage("Dragon summoned!");
+                return true;
+            }
+        }
+
 
         if (command.getName().equalsIgnoreCase("setwarp")) {
             return handleSetWarpCommand(player, args);
@@ -143,6 +175,7 @@ public class RoyalKingdomsCore extends PluginBase {
             default:
                 return false;
             }
+            
     }
 
     // Handle the /setwarp <name> command

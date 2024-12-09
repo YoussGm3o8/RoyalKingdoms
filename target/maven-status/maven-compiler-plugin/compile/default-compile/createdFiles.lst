@@ -1,7 +1,10 @@
 com\roki\core\Faction.class
 com\roki\core\FactionTabCompleter.class
+com\roki\core\Entities\DragonEntity.class
 com\roki\core\FactionCommand.class
+com\roki\core\Entities\GriffinEntity.class
 com\roki\core\PlayerData.class
 com\roki\core\RoyalKingdomsCore.class
 com\roki\core\ScoreboardManager.class
+com\roki\core\Entities\PhoenixEntity.class
 com\roki\core\FactionEventListener.class
