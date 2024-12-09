@@ -1,5 +1,6 @@
 com\roki\core\Faction.class
 com\roki\core\FactionTabCompleter.class
+com\roki\core\FactionCommand.class
 com\roki\core\PlayerData.class
 com\roki\core\RoyalKingdomsCore.class
 com\roki\core\ScoreboardManager.class

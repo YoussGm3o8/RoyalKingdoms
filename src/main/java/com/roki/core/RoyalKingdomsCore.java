@@ -1,7 +1,5 @@
 package com.roki.core;
 
-import com.roki.core.PlayerData;
-
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -14,11 +12,15 @@ import cn.nukkit.level.Level;
 import cn.nukkit.level.Location;
 import cn.nukkit.level.Position;
 import cn.nukkit.command.Command;
+import cn.nukkit.command.CommandExecutor;
 import cn.nukkit.command.CommandSender;
 import cn.nukkit.plugin.PluginBase;
 import cn.nukkit.utils.Config;
 
 import me.onebone.economyapi.EconomyAPI;
+// import sergeydertan.sregionprotector.SRegionProtectorMain;
+// import sergeydertan.sregionprotector.region.Region;
+// import sergeydertan.sregionprotector.region.RegionManager;
 
 public class RoyalKingdomsCore extends PluginBase {
     private Map<String, Faction> factions = new HashMap<>();
@@ -26,6 +28,8 @@ public class RoyalKingdomsCore extends PluginBase {
     private Config playerDataConfig;
     private Map<Player, Boolean> scoreboardEnabled = new HashMap<>();
     private ScoreboardManager scoreboardManager;
+    private FactionCommand factionCommand;
+    // private SRegionProtectorMain regionProtector;
 
     public Collection<Faction> getFactions() {
         return factions.values();
@@ -45,7 +49,7 @@ public class RoyalKingdomsCore extends PluginBase {
         for (String key : playerDataConfig.getKeys(false)) {
             String factionName = playerDataConfig.getString(key);
             if (factions.containsKey(factionName)) {
-                Faction faction = factions.get(factionName);
+                Faction faction = factions.get(factionName.toLowerCase());
                 if (!faction.getPlayers().contains(key)) {
                     faction.addPlayer(key); // Ensure mapping is consistent
                 }
@@ -61,10 +65,17 @@ public class RoyalKingdomsCore extends PluginBase {
         warpsConfig = new Config(new File(getDataFolder(), "warps.yml"), Config.YAML);
 
         scoreboardManager = new ScoreboardManager(this);
+        
+        // Setup tab completion
+        FactionCommand factionCommand = new FactionCommand();
+        FactionTabCompleter.setupTabCompletion(factionCommand, this);
+        getServer().getCommandMap().register("f", factionCommand);
+
 
         getServer().getPluginManager().registerEvents(new FactionEventListener(this), this);
         getLogger().info("Royal Kingdoms Core Plugin has been enabled!");
     }
+
 
     public ScoreboardManager getScoreboardManager() {
         return scoreboardManager;
@@ -76,9 +87,9 @@ public class RoyalKingdomsCore extends PluginBase {
     }
 
     private void initializePremadeFactions() {
-        factions.put("Phoenix", new Faction("Phoenix", "§cRed"));
-        factions.put("Dragon", new Faction("Dragon", "§9Blue"));
-        factions.put("Griffin", new Faction("Griffin", "§aGreen"));
+        factions.put("phoenix", new Faction("Phoenix", "§cRed"));
+        factions.put("dragon", new Faction("Dragon", "§9Blue"));
+        factions.put("griffin", new Faction("Griffin", "§aGreen"));
     
         // Load data for each faction after initialization
         for (Faction faction : factions.values()) {
@@ -329,7 +340,7 @@ public class RoyalKingdomsCore extends PluginBase {
         } else if (args.length == 2) {
             // Show info about the specified faction
             String factionName = args[1];
-            Faction faction = factions.get(factionName);
+            Faction faction = factions.get(factionName.toLowerCase());
     
             if (faction != null) {
                 player.sendMessage("§fFaction: " + faction.getColor() + " " + faction.getName());
@@ -427,7 +438,7 @@ public class RoyalKingdomsCore extends PluginBase {
     private boolean handleFactionMoneyCommand(Player player) {
         Faction faction = getPlayerFaction(player);
         if (faction != null) {
-            player.sendMessage("§aYour faction's vault balance: " + faction.getVaultBalance() + " coins");
+            player.sendMessage("§aYour faction's vault balance: §7$" + faction.getVaultBalance());
         } else {
             player.sendMessage("§cYou are not in a faction.");
         }
@@ -435,7 +446,7 @@ public class RoyalKingdomsCore extends PluginBase {
     }
 
     private boolean handleFactionTopMoneyCommand(Player player) {
-        StringBuilder message = new StringBuilder("§aFaction Money Leaderboard:\n");
+        StringBuilder message = new StringBuilder("§fFaction Money Leaderboard:\n");
 
         // Sort factions by vault balance (from EconomyAPI)
         factions.values().stream()
@@ -452,7 +463,7 @@ public class RoyalKingdomsCore extends PluginBase {
     }
 
     private boolean handleFactionTopKillsCommand(Player player) {
-        StringBuilder message = new StringBuilder("§aFaction with the most kills:\n");
+        StringBuilder message = new StringBuilder("§fFaction with the most kills:\n");
 
         factions.forEach((name, faction) -> {
             message.append(faction.getColor() + " " + faction.getName())
@@ -478,7 +489,7 @@ public class RoyalKingdomsCore extends PluginBase {
         } else if (args.length == 2) {
             // Show players in the specified faction
             String factionName = args[1];
-            Faction faction = factions.get(factionName);
+            Faction faction = factions.get(factionName.toLowerCase());
     
             if (faction != null) {
                 player.sendMessage("§aPlayers in faction " + faction.getName() + ": " + String.join(", ", faction.getPlayers()));
@@ -513,6 +524,6 @@ public class RoyalKingdomsCore extends PluginBase {
     public Faction getPlayerFaction(Player player) {
         PlayerData playerData = new PlayerData(player);
         String factionName = playerData.getFaction();
-        return factionName != null ? factions.get(factionName) : null;
+        return factionName != null ? factions.get(factionName.toLowerCase()) : null;
     }
 }

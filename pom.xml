@@ -15,15 +15,27 @@
     </properties>
 
     <repositories>
+
+        <repository>
+        <id>SRegionProtector-master</id>
+            <url>https://github.com/SergeyDertan/SRegionProtector.git</url>
+            <snapshots>
+                <enabled>true</enabled>
+                <updatePolicy>always</updatePolicy>
+            </snapshots>
+        </repository>
+
         <repository>
             <id>opencollab-repository-maven-releases</id>
             <name>Opencollab Repository</name>
              <url>https://repo.opencollab.dev/maven-releases</url>
         </repository>
+
         <repository>
             <id>nukkitx-repo</id>
             <url>https://repo.nukkitx.com/snapshot</url>
         </repository>
+
     </repositories>
 
     <dependencies>
@@ -45,6 +57,12 @@
             <artifactId>snakeyaml</artifactId>
             <version>2.2</version>
         </dependency>
+
+        <!-- <dependency>
+            <groupId>sergeydertan.sregionprotector</groupId>
+            <artifactId>SRegionProtector</artifactId>
+            <version>1.0</version>
+        </dependency> -->
 
     </dependencies>
 
