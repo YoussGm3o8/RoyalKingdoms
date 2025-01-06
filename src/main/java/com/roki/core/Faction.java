@@ -11,54 +11,44 @@ import java.util.Map;
 
 import org.yaml.snakeyaml.Yaml;
 
-// Faction class as before
+import cn.nukkit.Player;
+
 public class Faction {
     private String name;
+    private String leader;
+    private Player factionLeader;
     private String color;
-    private Map<String, List<String>> factionPlayers; 
-    private Map<String, Double> factionVaultBalances; // New map for faction-specific vault balances
-    private Map<String, Integer> factionKills; // New map for faction-specific kills
+    private Map<String, Integer> votes;
+    private List<String> factionPlayers; 
+    private double factionVaultBalance; // Vault balance for this faction
+    private int factionKills; // Kills for this faction
     private final File factionDataFile;
 
     public Faction(String name, String color) {
         this.name = name;
         this.color = color;
-        this.factionPlayers = new HashMap<>();
-        this.factionVaultBalances = new HashMap<>();
-        this.factionKills = new HashMap<>();
-        this.factionDataFile = new File("plugins/RoyalKingdomsCore/faction_data.yml");
+        this.factionPlayers = new ArrayList<>();
+        this.factionVaultBalance = 0.0;
+        this.factionKills = 0;
+        this.votes = new HashMap<>();
+        this.factionDataFile = new File("plugins/RoyalKingdomsCore/factions/" + name + ".yml");
 
         loadFactionData();
     }
-    
+
     public boolean containsPlayer(String playerName) {
-        return factionPlayers.getOrDefault(this.name, new ArrayList<>()).contains(playerName);
+        return factionPlayers.contains(playerName);
     }
-    
+
     public void addPlayer(String playerName) {
-        // Remove player from any existing faction first
-        for (List<String> factionsPlayerList : factionPlayers.values()) {
-            factionsPlayerList.remove(playerName);
-        }
-        
-        // Add player to this specific faction
-        if (!factionPlayers.containsKey(this.name)) {
-            factionPlayers.put(this.name, new ArrayList<>());
-        }
-        
-        // Only add if not already in the list
-        if (!factionPlayers.get(this.name).contains(playerName)) {
-            factionPlayers.get(this.name).add(playerName);
-        }
-        
+        factionPlayers.remove(playerName); // Remove player from other factions
+        factionPlayers.add(playerName); // Add to this faction
         saveFactionData();
     }
 
     public void removePlayer(String playerName) {
-        if (factionPlayers.containsKey(this.name)) {
-            factionPlayers.get(this.name).remove(playerName);
-        }
-        saveFactionData(); // Save data after removing player
+        factionPlayers.remove(playerName);
+        saveFactionData();
     }
 
     public String getName() {
@@ -70,42 +60,60 @@ public class Faction {
     }
 
     public List<String> getPlayers() {
-        return factionPlayers.getOrDefault(this.name, new ArrayList<>());
+        return factionPlayers;
     }
 
     public int getPlayerCount() {
-        return factionPlayers.getOrDefault(this.name, new ArrayList<>()).size();
+        return factionPlayers.size();
     }
 
     public double getVaultBalance() {
-        return factionVaultBalances.getOrDefault(this.name, 0.0);
+        return factionVaultBalance;
     }
 
     public void deposit(double amount) {
         if (amount > 0) {
-            double currentBalance = factionVaultBalances.getOrDefault(this.name, 0.0);
-            factionVaultBalances.put(this.name, currentBalance + amount);
+            factionVaultBalance += amount;
             saveFactionData();
         }
     }
 
     public int getKills() {
-        return factionKills.getOrDefault(this.name, 0);
+        return factionKills;
     }
 
     public void addKills(int amount) {
-        int currentKills = factionKills.getOrDefault(this.name, 0);
-        factionKills.put(this.name, currentKills + amount);
+        factionKills += amount;
         saveFactionData();
     }
 
-    // Method to save the faction data (including players and vault balance)
-    private void saveFactionData() {
+    public void setLeader(String leader) {
+        this.leader = leader;
+        saveFactionData();
+    }
+
+    public String getLeader() {
+        return leader;
+    }
+
+    public void resetSeasonData() {
+        leader = null;
+        votes.clear();
+        factionVaultBalance = 0.0;
+        factionKills = 0;
+        saveFactionData();
+    }
+
+    public void saveFactionData() {
         Yaml yaml = new Yaml();
         Map<String, Object> factionData = new HashMap<>();
-        factionData.put("factionVaultBalances", factionVaultBalances);
-        factionData.put("factionKills", factionKills);
+        factionData.put("name", name);
+        factionData.put("color", color);
+        factionData.put("leader", leader);
         factionData.put("factionPlayers", factionPlayers);
+        factionData.put("factionVaultBalance", factionVaultBalance);
+        factionData.put("factionKills", factionKills);
+        factionData.put("votes", votes);
 
         try (FileWriter writer = new FileWriter(factionDataFile)) {
             yaml.dump(factionData, writer);
@@ -114,20 +122,23 @@ public class Faction {
         }
     }
 
-    // Method to load the faction data (including players and vault balance)
-    @SuppressWarnings("unchecked") void loadFactionData() {
-    Yaml yaml = new Yaml();
-    if (factionDataFile.exists()) {
-        try (FileReader reader = new FileReader(factionDataFile)) {
-            Map<String, Object> factionData = yaml.load(reader);
-            if (factionData != null) {
-                factionVaultBalances = (Map<String, Double>) factionData.getOrDefault("factionVaultBalances", new HashMap<>());
-                factionKills = (Map<String, Integer>) factionData.getOrDefault("factionKills", new HashMap<>());
-                factionPlayers = (Map<String, List<String>>) factionData.getOrDefault("factionPlayers", new HashMap<>());
+    public void loadFactionData() {
+        Yaml yaml = new Yaml();
+        if (factionDataFile.exists()) {
+            try (FileReader reader = new FileReader(factionDataFile)) {
+                Map<String, Object> factionData = yaml.load(reader);
+                if (factionData != null) {
+                    name = (String) factionData.getOrDefault("name", name);
+                    color = (String) factionData.getOrDefault("color", color);
+                    leader = (String) factionData.get("leader");
+                    factionPlayers = (List<String>) factionData.getOrDefault("factionPlayers", new ArrayList<>());
+                    factionVaultBalance = (double) factionData.getOrDefault("factionVaultBalance", 0.0);
+                    factionKills = (int) factionData.getOrDefault("factionKills", 0);
+                    votes = (Map<String, Integer>) factionData.getOrDefault("votes", new HashMap<>());
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
             }
-        } catch (IOException e) {
-            e.printStackTrace();
         }
     }
-}
 }

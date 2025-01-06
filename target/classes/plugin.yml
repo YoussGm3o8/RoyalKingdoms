@@ -8,6 +8,12 @@ author: YoussGm3o8
 website: https://github.com/YoussGm3o8/RoyalKingdoms
 
 commands:
+  portalstick:
+    description: Get portal creation stick
+    permission: portalplugin.portalstick
+  setportal:
+    description: Create a portal
+    permission: portalplugin.setportal
   summonphoenix:
     description: Test
     usage: /summonphoenix
@@ -74,6 +80,12 @@ commands:
         permission: royalkingdoms.f.players
 
 permissions:
+  portalstick:
+    description: Get portal creation stick
+    default: op
+  setportal:
+    description: Create a portal
+    default: op
   royalkingdoms.setwarp:
     description: Allows admins to set warp locations
     default: op  # Only OPs or admins can use this command

@@ -31,9 +31,14 @@
              <url>https://repo.opencollab.dev/maven-releases</url>
         </repository>
 
-        <repository>
+        <!-- <repository>
             <id>nukkitx-repo</id>
             <url>https://repo.nukkitx.com/snapshot</url>
+        </repository> -->
+
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
         </repository>
 
     </repositories>
@@ -58,10 +63,16 @@
             <version>2.2</version>
         </dependency>
 
+        <dependency>
+            <groupId>com.github.Nukkit-coders</groupId>
+            <artifactId>MobPlugin</artifactId>
+            <version>7cfa6833d0</version> <!-- Use the desired release version or commit SHA -->
+        </dependency>
+
         <!-- <dependency>
-            <groupId>sergeydertan.sregionprotector</groupId>
+            <groupId>com.github.SergeyDertan</groupId>
             <artifactId>SRegionProtector</artifactId>
-            <version>1.0</version>
+            <version>1b9af30e99</version>
         </dependency> -->
 
     </dependencies>

@@ -34,8 +34,8 @@
       <url>https://repo.opencollab.dev/maven-releases</url>
     </repository>
     <repository>
-      <id>nukkitx-repo</id>
-      <url>https://repo.nukkitx.com/snapshot</url>
+      <id>jitpack.io</id>
+      <url>https://jitpack.io</url>
     </repository>
   </repositories>
   <dependencies>
