@@ -173,22 +173,22 @@ public class PhoenixEntity extends HorseBase implements CustomEntity {
         return true;
     }
     
-    // public boolean onUpdate(int currentTick) {
-    //     Iterator<Entity> linkedIterator = this.passengers.iterator();
+    public boolean onUpdate(int currentTick) {
+        Iterator<Entity> linkedIterator = this.passengers.iterator();
   
-    //     while(linkedIterator.hasNext()) {
-    //        Entity linked = (Entity)linkedIterator.next();
-    //        if (!linked.isAlive()) {
-    //           if (linked.riding == this) {
-    //              linked.riding = null;
-    //           }
+        while(linkedIterator.hasNext()) {
+           Entity linked = (Entity)linkedIterator.next();
+           if (!linked.isAlive()) {
+              if (linked.riding == this) {
+                 linked.riding = null;
+              }
   
-    //           linkedIterator.remove();
-    //        }
-    //     }
-    //     this.move(0, this.motionY, 0);
-    //     return super.onUpdate(currentTick);
-    //  }
+              linkedIterator.remove();
+           }
+        }
+        this.move(this.motionX, this.motionY, 0);
+        return super.onUpdate(currentTick);
+     }
 
     @Override
     public void onPlayerInput(Player player, double strafe, double forward) {
@@ -225,26 +225,26 @@ public class PhoenixEntity extends HorseBase implements CustomEntity {
     
         // If the player is looking up (positive pitch), move the dragon upward
         if (playerPitch < -20) {  // You can adjust the threshold to match your needs
-            this.pitch = playerPitch;
+            this.pitch = player.getPitch();
             this.motionY = VERTICAL_MOTION_UP;
         } 
         // If the player is looking down (negative pitch), move the dragon downward
         else if (playerPitch > 20) {  // You can adjust the threshold to match your needs
-            this.pitch = playerPitch;
+            this.pitch = player.getPitch();
             this.motionY = VERTICAL_MOTION_DOWN;
         } 
         // If the player is looking straight, the dragon doesn't move vertically
         else {
             this.motionY = 0;
-            this.pitch = playerPitch;
+            this.pitch = player.getPitch();
         }
     
         if (f >= 1.0E-4) {
             f = Math.sqrt(f);
     
-            // if (f < 1) {
-            //     f = 1;
-            // }
+            if (f < 1) {
+                f = 1;
+            }
     
             f = friction / f;
             strafe *= f;
@@ -260,7 +260,7 @@ public class PhoenixEntity extends HorseBase implements CustomEntity {
             this.motionX = 0;
             this.motionZ = 0;
         }
-        System.out.println("Motion X: " + this.motionX + " Motion Y: " + this.motionY + " Motion Z:"  + this.motionZ);
+        System.out.println("Motion X: " + this.motionX + " Motion Y: " + this.motionY + " Motion Z:"  + this.motionZ + "pitch: " + player.getPitch());
     
         // Apply motion to the entity
         // this.move(this.motionX, this.motionY, this.motionZ);
