@@ -31,10 +31,6 @@ public class PlayerData {
     }
 
     public void setFaction(String faction) {
-        if (faction == null || faction.trim().isEmpty()) {
-            System.out.println("Attempted to set an invalid faction for " + player.getName());
-            return;
-        }
         this.faction = faction;
         System.out.println("Faction for " + player.getName() + " set to " + faction);
         savePlayerData();

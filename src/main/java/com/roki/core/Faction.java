@@ -71,6 +71,10 @@ public class Faction {
         return factionVaultBalance;
     }
 
+    public void setVaultBalance(double balance) {
+        factionVaultBalance = balance;
+    }
+
     public void deposit(double amount) {
         if (amount > 0) {
             factionVaultBalance += amount;
@@ -80,6 +84,10 @@ public class Faction {
 
     public int getKills() {
         return factionKills;
+    }
+
+    public void setKills(int kills) {
+        factionKills = kills;
     }
 
     public void addKills(int amount) {

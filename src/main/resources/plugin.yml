@@ -97,7 +97,7 @@ permissions:
     default: true
   royalkingdoms.leavefaction:
     description: Allows players to leave a faction
-    default: true
+    default: op
   royalkingdoms.f:
     description: Allows players to use faction commands
     default: true
