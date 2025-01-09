@@ -18,6 +18,7 @@ import com.roki.core.Entities.DragonEntity;
 import com.roki.core.Entities.GriffinEntity;
 
 import cn.nukkit.Player;
+import cn.nukkit.Server;
 import cn.nukkit.level.Level;
 import cn.nukkit.level.Location;
 import cn.nukkit.level.Position;
@@ -71,8 +72,6 @@ public class RoyalKingdomsCore extends PluginBase {
     public void onLoad() {
         // Entities registration
         EntityManager.get().registerDefinition(PhoenixEntity.DEFINITION);
-        EntityManager.get().registerDefinition(GriffinEntity.DEFINITION);
-        EntityManager.get().registerDefinition(DragonEntity.DEFINITION);
     }
 
     @Override
@@ -97,6 +96,7 @@ public class RoyalKingdomsCore extends PluginBase {
 
         getLogger().info("Royal Kingdoms Core Plugin has been enabled!");
     }
+
 
 
     public ScoreboardManager getScoreboardManager() {
@@ -182,17 +182,8 @@ public class RoyalKingdomsCore extends PluginBase {
         }
 
 
-        if (command.getName().equals("summonphoenix")) {
-            Entity entity = Entity.createEntity(PhoenixEntity.IDENTIFIER, (Player) player);
-            if (entity != null) {
-                entity.spawnToAll();
-                player.sendMessage("Phoenix summoned!");
-                return true;
-            }
-        }
-        
         if (command.getName().equals("summondragon")) {
-            Entity entity = Entity.createEntity(DragonEntity.IDENTIFIER, (Player) player);
+            Entity entity = Entity.createEntity(PhoenixEntity.IDENTIFIER, (Player) player);
             if (entity != null) {
                 entity.spawnToAll();
                 player.sendMessage("Dragon summoned!");

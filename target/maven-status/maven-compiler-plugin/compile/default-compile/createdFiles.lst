@@ -1,4 +1,5 @@
 com\roki\core\FactionTabCompleter.class
+com\roki\core\Entities\EventListenerEdit.class
 com\roki\core\Entities\GriffinEntity.class
 com\roki\core\PlayerData.class
 com\roki\core\RoyalKingdomsCore.class

@@ -10,7 +10,10 @@ import cn.nukkit.entity.custom.EntityDefinition;
 import cn.nukkit.entity.data.FloatEntityData;
 import cn.nukkit.entity.data.Vector3fEntityData;
 import cn.nukkit.entity.mob.EntityEnderDragon;
+import cn.nukkit.event.EventHandler;
+import cn.nukkit.event.EventPriority;
 import cn.nukkit.event.entity.EntityDamageEvent;
+import cn.nukkit.event.server.DataPacketReceiveEvent;
 import cn.nukkit.item.Item;
 import cn.nukkit.level.format.FullChunk;
 import cn.nukkit.math.Vector3;
@@ -18,12 +21,17 @@ import cn.nukkit.math.Vector3f;
 import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.network.protocol.AddEntityPacket;
 import cn.nukkit.network.protocol.DataPacket;
+import cn.nukkit.network.protocol.PlayerAuthInputPacket;
 import cn.nukkit.network.protocol.SetEntityLinkPacket;
+import cn.nukkit.network.protocol.types.EntityLink;
 import nukkitcoders.mobplugin.MobPlugin;
 import nukkitcoders.mobplugin.entities.HorseBase;
 import nukkitcoders.mobplugin.entities.animal.FlyingAnimal;
 import nukkitcoders.mobplugin.entities.animal.walking.Donkey;
 import nukkitcoders.mobplugin.entities.animal.walking.Horse;
+import nukkitcoders.mobplugin.entities.animal.walking.Llama;
+import nukkitcoders.mobplugin.entities.animal.walking.Pig;
+import nukkitcoders.mobplugin.entities.animal.walking.Strider;
 import nukkitcoders.mobplugin.utils.FastMathLite;
 
 import java.util.ArrayList;
@@ -36,9 +44,9 @@ public class PhoenixEntity extends HorseBase implements CustomEntity {
     public static final EntityDefinition DEFINITION =
             EntityDefinition.builder().identifier(PhoenixEntity.IDENTIFIER).implementation(PhoenixEntity.class).build();
 
-    private static final float DEFAULT_MOVE_SPEED = 2.0f;
-    private static final float VERTICAL_MOTION_UP = 0.4f;
-    private static final float VERTICAL_MOTION_DOWN = -0.4f;
+    private static final float DEFAULT_MOVE_SPEED =1.8f;
+    private static final float VERTICAL_MOTION_UP = 0.2f;
+    private static final float VERTICAL_MOTION_DOWN = -0.2f;
     private static final float GRAVITY = -0.1f;
     private static final float PASSENGER_HEIGHT_OFFSET = 2.5f;
 
@@ -173,6 +181,7 @@ public class PhoenixEntity extends HorseBase implements CustomEntity {
         return true;
     }
     
+    @Override
     public boolean onUpdate(int currentTick) {
         Iterator<Entity> linkedIterator = this.passengers.iterator();
   
@@ -186,14 +195,16 @@ public class PhoenixEntity extends HorseBase implements CustomEntity {
               linkedIterator.remove();
            }
         }
-        this.move(this.motionX, this.motionY, 0);
+        this.move(this.motionX, 0, this.motionZ);
+        this.updateMovement();
         return super.onUpdate(currentTick);
      }
 
+    private static final float MAX_SPEED = 1f; // Set a maximum speed for the dragon
     @Override
     public void onPlayerInput(Player player, double strafe, double forward) {
         this.stayTime = 0;
-        this.moveTime = 10;
+        this.moveTime = 20;
         this.route = null;
         this.target = null;
     
@@ -202,9 +213,9 @@ public class PhoenixEntity extends HorseBase implements CustomEntity {
 
         this.setRotation(playerYaw, playerPitch);
 
-        if (forward < 0) {
-            forward = forward / 2;
-        }
+        // if (forward < 0) {
+        //     forward = forward / 2;
+        // }
         forward = -forward;
         strafe = -strafe;
     
@@ -225,18 +236,18 @@ public class PhoenixEntity extends HorseBase implements CustomEntity {
     
         // If the player is looking up (positive pitch), move the dragon upward
         if (playerPitch < -20) {  // You can adjust the threshold to match your needs
-            this.pitch = player.getPitch();
+            this.pitch = playerPitch;
             this.motionY = VERTICAL_MOTION_UP;
         } 
         // If the player is looking down (negative pitch), move the dragon downward
         else if (playerPitch > 20) {  // You can adjust the threshold to match your needs
-            this.pitch = player.getPitch();
+            this.pitch = playerPitch;
             this.motionY = VERTICAL_MOTION_DOWN;
         } 
         // If the player is looking straight, the dragon doesn't move vertically
         else {
             this.motionY = 0;
-            this.pitch = player.getPitch();
+            this.pitch = playerPitch;
         }
     
         if (f >= 1.0E-4) {
@@ -256,28 +267,24 @@ public class PhoenixEntity extends HorseBase implements CustomEntity {
         
             this.motionX = (strafe * cosYaw + forward * sinYaw) * this.moveSpeed;
             this.motionZ = (forward * cosYaw - strafe * sinYaw) * this.moveSpeed;
+
+            // Limit the speed to the maximum speed
+            double speed = Math.sqrt(this.motionX * this.motionX + this.motionZ * this.motionZ);
+            if (speed > MAX_SPEED ) {
+                double scale = MAX_SPEED / speed;
+                this.motionX *= scale;
+                this.motionZ *= scale;
+            }
+            if (forward > 0) {
+                this.motionX *= 0.3;
+                this.motionZ *= 0.3;
+            }
         } else {
             this.motionX = 0;
             this.motionZ = 0;
         }
-        System.out.println("Motion X: " + this.motionX + " Motion Y: " + this.motionY + " Motion Z:"  + this.motionZ + "pitch: " + player.getPitch());
-    
-        // Apply motion to the entity
-        // this.move(this.motionX, this.motionY, this.motionZ);
+        System.out.println("Motion X: " + this.motionX + " Motion Y: " + this.motionY + " Motion Z:"  + this.motionZ);
         
-        // // Force update rotation values
-        // this.setRotation(playerYaw, playerPitch);
-        
-        // // Update movement
-        // this.updateMovement();
-    }
-
-    @Override
-    public boolean attack(EntityDamageEvent source) {
-        if (source.getDamage() >= this.getHealth()) {
-            source.setDamage(this.getHealth() - 1);
-        }
-        return super.attack(source);
     }
 
      @Override
@@ -293,10 +300,17 @@ public class PhoenixEntity extends HorseBase implements CustomEntity {
         addEntity.y = (float) this.y;
         addEntity.z = (float) this.z;
         addEntity.speedX = (float) this.motionX;
-        addEntity.speedY = (float) this.motionY;
+        addEntity.y = (float) this.y + this.getBaseOffset();
         addEntity.speedZ = (float) this.motionZ;
-        addEntity.metadata = this.dataProperties;
+        addEntity.metadata = this.dataProperties.clone();
         addEntity.attributes = new Attribute[]{Attribute.getAttribute(Attribute.MAX_HEALTH).setMaxValue(200).setValue(200)};
+
+        addEntity.links = new EntityLink[this.passengers.size()];
+
+        for(int i = 0; i < addEntity.links.length; ++i) {
+           addEntity.links[i] = new EntityLink(this.id, ((Entity)this.passengers.get(i)).getId(), (byte)(i == 0 ? 1 : 2), false, false, 0.0F);
+        }
+
         return addEntity;
     }
 
@@ -321,6 +335,26 @@ public class PhoenixEntity extends HorseBase implements CustomEntity {
     }
 
     @Override
+    public boolean attack(EntityDamageEvent source) {
+        if (source.getDamage() >= this.getHealth()) {
+            dismountAllPassengers(); // Dismount all passengers before the entity dies
+        }
+        return super.attack(source);
+    }
+
+    private void dismountAllPassengers() {
+        for (Entity passenger : new ArrayList<>(this.passengers)) {
+            dismountEntity(passenger);
+        }
+    }
+
+    @Override
+    public void kill() {
+        dismountAllPassengers(); // Ensure all passengers are dismounted when the dragon is killed
+        super.kill();
+    }
+
+    @Override
     public void updatePassengers() {
         if (this.passengers.isEmpty()) {
             return;
@@ -342,12 +376,6 @@ public class PhoenixEntity extends HorseBase implements CustomEntity {
 
     @Override
     public int getKillExperience() {
-        if (!MobPlugin.getInstance().config.noXpOrbs) {
-            for (int i = 0; i < 167; ) {
-                this.level.dropExpOrb(this, 3);
-                i++;
-            }
-        }
         return 0;
     }
 }
