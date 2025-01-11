@@ -17,14 +17,11 @@ public class FactionEventListener implements Listener {
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
         
-        // Get PlayerData from manager
-        PlayerData playerData = plugin.getPlayerDataManager().getPlayerData(player);
+        // // Load player data from the database
+        // PlayerData playerData = plugin.getPlayerDataManager().getPlayerData(player);
         
-        // Update last login time
-        playerData.updateLastLogin();
-        
-        // Check if they're still eligible to be faction leader
-        playerData.checkFactionLeaderStatus();
+        // // Update last login time
+        // playerData.updateLastLogin();
         
         // Get faction from PlayerData
         Faction faction = plugin.getPlayerFaction(player);
@@ -34,18 +31,23 @@ public class FactionEventListener implements Listener {
 
         // Send a welcome message
         if (faction != null) {
-            player.sendMessage("§7Welcome back to the " + faction.getColor() + " " + faction.getName() + " §7faction!");
+            player.sendMessage("§7Welcome back to the " + faction.getName() + " §7faction!");
         } else {
-            player.sendMessage("§7Welcome to the Royal Kingdoms MCBE Vanilla Factions server! Join a faction with /f join");
+            player.sendMessage("§7Welcome to the Royal Kingdoms MCBE Vanilla Factions server! Create a faction with /f create <name>, or join an existing faction with /f join <name> by getting an invite from another player.");
         }
     }
 
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
-        Player player = event.getPlayer();
+        // Player player = event.getPlayer();
         
-        // Save player data when they leave
-        PlayerDataManager playerDataManager = plugin.getPlayerDataManager();
-        playerDataManager.saveAndRemove(player);
+        // // Save player data to the database when they leave
+        // PlayerDataManager playerDataManager = plugin.getPlayerDataManager();
+        // PlayerData playerData = playerDataManager.getPlayerData(player);
+        // playerData.savePlayerData(); // Ensure player data is saved
+        // playerDataManager.saveAndRemove(player);
+        
+        // // Ensure all data is saved before the player is removed
+        // playerDataManager.saveAll();
     }
 }

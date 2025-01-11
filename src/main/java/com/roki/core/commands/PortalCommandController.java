@@ -2,8 +2,11 @@ package com.roki.core.commands;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
 
 import com.roki.core.RoyalKingdomsCore;
+import com.roki.core.database.DatabaseManager;
+import com.roki.core.database.DataModel;
 
 import cn.nukkit.Player;
 import cn.nukkit.event.player.PlayerInteractEvent;
@@ -15,13 +18,15 @@ import cn.nukkit.plugin.PluginBase;
 
 public class PortalCommandController {
     private final RoyalKingdomsCore plugin;
+    private DatabaseManager dbManager;
     
     public Config portalConfig;
     private Map<String, Position> pos1 = new HashMap<>();
     private Map<String, Position> pos2 = new HashMap<>();
 
-    public PortalCommandController(RoyalKingdomsCore plugin) {
+    public PortalCommandController(RoyalKingdomsCore plugin, DatabaseManager dbManager) {
         this.plugin = plugin;
+        this.dbManager = dbManager;
     }
 
     public boolean handlePortalStickCommand(Player player) {
@@ -140,5 +145,15 @@ public class PortalCommandController {
                 event.setCancelled(true);
             }
         }
+    }
+
+    public void createPortal(String portalName, String destination) {
+        String sql = "INSERT INTO portals (name, destination) VALUES (?, ?)";
+        dbManager.executeUpdate(sql, portalName, destination);
+    }
+
+    public void deletePortal(String portalName) {
+        String sql = "DELETE FROM portals WHERE name = ?";
+        dbManager.executeUpdate(sql, portalName);
     }
 }

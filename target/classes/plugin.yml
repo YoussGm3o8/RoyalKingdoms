@@ -48,7 +48,7 @@ commands:
       permission: royalkingdoms.scoreboard
   f:
     description: Factions command with various subcommands
-    usage: "/f <join|leave|info|money|topmoney|deposit|topkills|players>"
+    usage: "/f <join|leave|info|money|topmoney|deposit|topkills|players|create|invite>"
     permission: royalkingdoms.f
     subcommands:
       join:
@@ -75,6 +75,12 @@ commands:
       players:
         description: View the players in your faction or in a specific faction
         permission: royalkingdoms.f.players
+      create:
+        description: Create a new faction
+        permission: royalkingdoms.f.create
+      invite:
+        description: Invite a player to your faction
+        permission: royalkingdoms.f.invite
 
 permissions:
   portalstick:
@@ -97,7 +103,7 @@ permissions:
     default: true
   royalkingdoms.leavefaction:
     description: Allows players to leave a faction
-    default: op
+    default: true
   royalkingdoms.f:
     description: Allows players to use faction commands
     default: true
@@ -118,6 +124,12 @@ permissions:
     default: true
   royalkingdoms.f.deposit:
     description: Allows players to deposit money into their faction's vault
+    default: true
+  royalkingdoms.f.create:
+    description: Allows players to create a new faction
+    default: op
+  royalkingdoms.f.invite:
+    description: Allows players to invite others to their faction
     default: true
   royalkingdoms.f.admin:
     description: Allows admins to manage faction settings (e.g., change vault balance)

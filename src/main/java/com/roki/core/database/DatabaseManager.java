@@ -2,22 +2,30 @@ package com.roki.core.database;
 
 import cn.nukkit.Player;
 import cn.nukkit.level.Location;
-import cn.nukkit.level.Position;
-import cn.nukkit.plugin.Plugin;
 import com.roki.core.Faction;
 import com.roki.core.RoyalKingdomsCore;
-
 import java.sql.*;
+import java.time.Instant;
 import java.util.*;
 
 public class DatabaseManager {
     private final String url;
-    private final Plugin plugin;
+    private final RoyalKingdomsCore plugin;
+    private Connection connection;
 
     public DatabaseManager(RoyalKingdomsCore plugin) {
         this.plugin = plugin;
         this.url = "jdbc:sqlite:" + plugin.getDataFolder().getAbsolutePath() + "/database.db";
+        loadDriver();
         initializeTables();
+    }
+
+    private void loadDriver() {
+        try {
+            Class.forName("org.sqlite.JDBC");
+        } catch (ClassNotFoundException e) {
+            plugin.getLogger().error("Failed to load SQLite JDBC driver", e);
+        }
     }
 
     private Connection connect() throws SQLException {
@@ -34,6 +42,7 @@ public class DatabaseManager {
                 name TEXT NOT NULL,
                 faction_id INTEGER,
                 last_login TIMESTAMP,
+                online_time INTEGER DEFAULT 0,
                 FOREIGN KEY (faction_id) REFERENCES factions(id)
             )
             """,
@@ -43,11 +52,8 @@ public class DatabaseManager {
             CREATE TABLE IF NOT EXISTS factions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL UNIQUE,
-                color TEXT NOT NULL,
                 vault_balance REAL DEFAULT 0,
-                kills INTEGER DEFAULT 0,
-                leader_uuid TEXT,
-                FOREIGN KEY (leader_uuid) REFERENCES players(uuid)
+                kills INTEGER DEFAULT 0
             )
             """,
             
@@ -92,8 +98,86 @@ public class DatabaseManager {
         }
     }
 
+    public void executeUpdate(String sql, Object... params) {
+        try (Connection conn = connect();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            for (int i = 0; i < params.length; i++) {
+                stmt.setObject(i + 1, params[i]);
+            }
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
     // Player Methods
+    public void savePlayerData(String uuid, String name, String faction, Location home, Instant lastLogin, long onlineTime) {
+        String sql = """
+            INSERT OR REPLACE INTO players (uuid, name, faction_id, last_login, online_time)
+            VALUES (?, ?, (SELECT id FROM factions WHERE name = ?), ?, ?)
+        """;
+        
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, uuid);
+            pstmt.setString(2, name);
+            pstmt.setString(3, faction);
+            pstmt.setTimestamp(4, lastLogin != null ? Timestamp.from(lastLogin) : null);
+            pstmt.setLong(5, onlineTime);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            plugin.getLogger().error("Failed to save player data", e);
+        }
+
+        if (home != null) {
+            saveHome(uuid, home);
+        }
+    }
+
+    public PlayerDataModel loadPlayerData(String uuid) {
+        String sql = """
+            SELECT p.uuid, f.name as faction, h.world, h.x, h.y, h.z, h.yaw, h.pitch, p.last_login, p.online_time
+            FROM players p
+            LEFT JOIN factions f ON p.faction_id = f.id
+            LEFT JOIN homes h ON p.uuid = h.player_uuid
+            WHERE p.uuid = ?
+        """;
+        
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, uuid);
+            ResultSet rs = pstmt.executeQuery();
+            
+            if (rs.next()) {
+                String faction = rs.getString("faction");
+                Location home = null;
+                if (rs.getString("world") != null) {
+                    home = new Location(
+                        rs.getDouble("x"),
+                        rs.getDouble("y"),
+                        rs.getDouble("z"),
+                        rs.getFloat("yaw"),
+                        rs.getFloat("pitch"),
+                        plugin.getServer().getLevelByName(rs.getString("world"))
+                    );
+                }
+                Instant lastLogin = rs.getTimestamp("last_login") != null ? rs.getTimestamp("last_login").toInstant() : null;
+                long onlineTime = rs.getLong("online_time");
+
+                return new PlayerDataModel(uuid, faction, home, lastLogin, onlineTime);
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().error("Failed to load player data", e);
+        }
+        return null;
+    }
+
     public void savePlayer(Player player, String factionName) {
+        if (player.getName() == null) {
+            plugin.getLogger().error("Player name is null for UUID: " + player.getUniqueId().toString());
+            return;
+        }
+
         String sql = """
             INSERT OR REPLACE INTO players (uuid, name, faction_id, last_login)
             VALUES (?, ?, (SELECT id FROM factions WHERE name = ?), ?)
@@ -135,17 +219,15 @@ public class DatabaseManager {
     // Faction Methods
     public void saveFaction(Faction faction) {
         String sql = """
-            INSERT OR REPLACE INTO factions (name, color, vault_balance, kills, leader_uuid)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT OR REPLACE INTO factions (name, vault_balance, kills)
+            VALUES (?, ?, ?)
         """;
         
         try (Connection conn = connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, faction.getName());
-            pstmt.setString(2, faction.getColor());
-            pstmt.setDouble(3, faction.getVaultBalance());
-            pstmt.setInt(4, faction.getKills());
-            pstmt.setString(5, faction.getLeader());
+            pstmt.setDouble(2, faction.getVaultBalance());
+            pstmt.setInt(3, faction.getKills());
             pstmt.executeUpdate();
         } catch (SQLException e) {
             plugin.getLogger().error("Failed to save faction", e);
@@ -163,11 +245,10 @@ public class DatabaseManager {
             while (rs.next()) {
                 Faction faction = new Faction(
                     rs.getString("name"),
-                    rs.getString("color")
+                    rs.getDouble("vault_balance")
                 );
                 faction.setVaultBalance(rs.getDouble("vault_balance"));
                 faction.setKills(rs.getInt("kills"));
-                faction.setLeader(rs.getString("leader_uuid"));
                 
                 // Load faction members
                 loadFactionMembers(conn, faction);
@@ -243,6 +324,35 @@ public class DatabaseManager {
         return null;
     }
 
+    public boolean deleteWarp(String warpName) {
+        String sql = "DELETE FROM warps WHERE name = ?";
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, warpName);
+            return pstmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            plugin.getLogger().error("Failed to delete warp", e);
+            return false;
+        }
+    }
+
+    public List<String> getAllWarps() {
+        List<String> warps = new ArrayList<>();
+        String sql = "SELECT name FROM warps ORDER BY name";
+        
+        try (Connection conn = connect();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            
+            while (rs.next()) {
+                warps.add(rs.getString("name"));
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().error("Failed to get all warps", e);
+        }
+        return warps;
+    }
+
     // Home Methods
     public void saveHome(String playerUuid, Location location) {
         String sql = """
@@ -298,6 +408,233 @@ public class DatabaseManager {
             pstmt.executeUpdate();
         } catch (SQLException e) {
             plugin.getLogger().error("Failed to delete home", e);
+        }
+    }
+
+    public boolean factionExists(String factionName) {
+        String sql = "SELECT 1 FROM factions WHERE LOWER(name) = LOWER(?)";
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, factionName);
+            ResultSet rs = pstmt.executeQuery();
+            return rs.next();
+        } catch (SQLException e) {
+            plugin.getLogger().error("Failed to check faction existence", e);
+            return false;
+        }
+    }
+
+    public Faction getFactionInfo(String factionName) {
+        String sql = "SELECT name, vault_balance FROM factions WHERE LOWER(name) = LOWER(?)";
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, factionName);
+            ResultSet rs = pstmt.executeQuery();
+            
+            if (rs.next()) {
+                return new Faction(
+                    rs.getString("name"),
+                    rs.getDouble("vault_balance")
+                );
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().error("Failed to get faction info", e);
+        }
+        return null;
+    }
+
+    public List<String> getFactionPlayers(String factionName) {
+        List<String> players = new ArrayList<>();
+        String sql = """
+            SELECT p.name
+            FROM players p
+            JOIN factions f ON p.faction_id = f.id
+            WHERE LOWER(f.name) = LOWER(?)
+            ORDER BY p.name
+        """;
+        
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, factionName);
+            ResultSet rs = pstmt.executeQuery();
+            
+            while (rs.next()) {
+                players.add(rs.getString("name"));
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().error("Failed to get faction players", e);
+        }
+        return players;
+    }
+
+    public List<String> getAllFactionNames() {
+        List<String> factions = new ArrayList<>();
+        String sql = "SELECT name FROM factions ORDER BY name";
+        
+        try (Connection conn = connect();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            
+            while (rs.next()) {
+                factions.add(rs.getString("name"));
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().error("Failed to get all faction names", e);
+        }
+        return factions;
+    }
+
+    public void removePlayerFromFaction(String uuid) {
+        String sql = "UPDATE players SET faction_id = NULL WHERE uuid = ?";
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, uuid);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            plugin.getLogger().error("Failed to remove player from faction", e);
+        }
+    }
+
+    public String getFactionWithLeastPlayers() {
+        String sql = """
+            SELECT f.name, COUNT(p.uuid) as player_count
+            FROM factions f
+            LEFT JOIN players p ON f.id = p.faction_id
+            GROUP BY f.id
+            ORDER BY player_count ASC
+            LIMIT 1
+        """;
+        
+        try (Connection conn = connect();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            
+            if (rs.next()) {
+                return rs.getString("name");
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().error("Failed to get faction with least players", e);
+        }
+        return null;
+    }
+
+    public void addPlayerToFaction(String uuid, String playerName, String factionName) {
+        if (playerName == null) {
+            plugin.getLogger().error("Player name is null for UUID: " + uuid);
+            return;
+        }
+
+        String sql = """
+            UPDATE players 
+            SET faction_id = (SELECT id FROM factions WHERE name = ?),
+                name = ?,
+                last_login = ?
+            WHERE uuid = ?
+        """;
+        
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, factionName);
+            pstmt.setString(2, playerName);
+            pstmt.setTimestamp(3, new Timestamp(System.currentTimeMillis()));
+            pstmt.setString(4, uuid);
+            
+            if (pstmt.executeUpdate() == 0) {
+                // Player doesn't exist, insert new record
+                sql = """
+                    INSERT INTO players (uuid, name, faction_id, last_login)
+                    VALUES (?, ?, (SELECT id FROM factions WHERE name = ?), ?)
+                """;
+                try (PreparedStatement insertStmt = conn.prepareStatement(sql)) {
+                    insertStmt.setString(1, uuid);
+                    insertStmt.setString(2, playerName);
+                    insertStmt.setString(3, factionName);
+                    insertStmt.setTimestamp(4, new Timestamp(System.currentTimeMillis()));
+                    insertStmt.executeUpdate();
+                }
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().error("Failed to add player to faction", e);
+        }
+    }
+
+    public Double getFactionBalance(String factionName) {
+        String sql = "SELECT vault_balance FROM factions WHERE LOWER(name) = LOWER(?)";
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, factionName);
+            ResultSet rs = pstmt.executeQuery();
+            
+            if (rs.next()) {
+                return rs.getDouble("vault_balance");
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().error("Failed to get faction balance", e);
+        }
+        return null;
+    }
+
+    public void addToFactionBalance(String factionName, double amount) {
+        String sql = "UPDATE factions SET vault_balance = vault_balance + ? WHERE LOWER(name) = LOWER(?)";
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setDouble(1, amount);
+            pstmt.setString(2, factionName);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            plugin.getLogger().error("Failed to update faction balance", e);
+        }
+    }
+
+    public Map<String, Double> getTopFactionsByBalance() {
+        Map<String, Double> topFactions = new LinkedHashMap<>();
+        String sql = "SELECT name, vault_balance FROM factions ORDER BY vault_balance DESC";
+        
+        try (Connection conn = connect();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            
+            while (rs.next()) {
+                topFactions.put(rs.getString("name"), rs.getDouble("vault_balance"));
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().error("Failed to get top factions by balance", e);
+        }
+        return topFactions;
+    }
+
+    public Map<String, Integer> getTopFactionsByKills() {
+        Map<String, Integer> topFactions = new LinkedHashMap<>();
+        String sql = "SELECT name, kills FROM factions ORDER BY kills DESC";
+        
+        try (Connection conn = connect();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            
+            while (rs.next()) {
+                topFactions.put(rs.getString("name"), rs.getInt("kills"));
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().error("Failed to get top factions by kills", e);
+        }
+        return topFactions;
+    }
+
+    public void deleteFactionIfEmpty(String factionName) {
+        String sql = """
+            DELETE FROM factions
+            WHERE name = ?
+            AND vault_balance = 0
+            AND (SELECT COUNT(*) FROM players WHERE faction_id = (SELECT id FROM factions WHERE name = ?)) = 0
+        """;
+        
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, factionName);
+            pstmt.setString(2, factionName);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            plugin.getLogger().error("Failed to delete faction if empty", e);
         }
     }
 }

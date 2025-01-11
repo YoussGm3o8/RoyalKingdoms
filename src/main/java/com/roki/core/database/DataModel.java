@@ -8,12 +8,19 @@ import com.roki.core.RoyalKingdomsCore;
 import java.util.Map;
 
 public class DataModel {
+    public static final String CREATE_FACTIONS_TABLE = "CREATE TABLE IF NOT EXISTS factions (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(255) NOT NULL)";
+    public static final String CREATE_PORTALS_TABLE = "CREATE TABLE IF NOT EXISTS portals (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(255) NOT NULL, destination VARCHAR(255) NOT NULL)";
+    
     private final DatabaseManager db;
     private final RoyalKingdomsCore plugin;
     
     public DataModel(RoyalKingdomsCore plugin) {
         this.plugin = plugin;
         this.db = new DatabaseManager(plugin);
+    }
+    
+    public DatabaseManager getDatabaseManager() {
+        return db;
     }
     
     // Player Methods

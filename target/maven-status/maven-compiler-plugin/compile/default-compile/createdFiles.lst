@@ -7,9 +7,12 @@ com\roki\core\PlayerDataManager.class
 com\roki\core\Entities\PhoenixEntity.class
 com\roki\core\FactionEventListener.class
 com\roki\core\Faction.class
+com\roki\core\commands\FactionInfo.class
 com\roki\core\commands\PortalCommandController.class
 com\roki\core\database\DataModel.class
+com\roki\core\RoyalKingdomsCore$1.class
 com\roki\core\FactionCommand.class
 com\roki\core\Portals\PortalEventListener.class
 com\roki\core\database\DatabaseManager.class
+com\roki\core\database\PlayerDataModel.class
 com\roki\core\ScoreboardManager.class

@@ -283,7 +283,7 @@ public class PhoenixEntity extends HorseBase implements CustomEntity {
             this.motionX = 0;
             this.motionZ = 0;
         }
-        System.out.println("Motion X: " + this.motionX + " Motion Y: " + this.motionY + " Motion Z:"  + this.motionZ);
+       // System.out.println(" yaw " +player.getYaw() +" pitch "+ player.getPitch() + " position " + player.getPosition());
         
     }
 

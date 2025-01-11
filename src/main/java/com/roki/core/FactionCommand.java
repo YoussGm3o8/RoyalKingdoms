@@ -2,20 +2,9 @@ package com.roki.core;
 
 import cn.nukkit.command.Command;
 import cn.nukkit.command.CommandSender;
-import cn.nukkit.command.data.CommandEnum;
-import cn.nukkit.command.data.CommandParameter;
-import cn.nukkit.lang.TranslationContainer;
-import cn.nukkit.Player;
 import cn.nukkit.utils.TextFormat;
-import cn.nukkit.Server;
-import cn.nukkit.command.CommandMap;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public class FactionCommand extends Command {
-
-    private RoyalKingdomsCore plugin;
 
     public FactionCommand() {
         super("f", "Manage factions");
@@ -23,7 +12,7 @@ public class FactionCommand extends Command {
         this.setAliases(new String[]{"faction"});
         
         // Update tab completion setup using the new method
-        FactionTabCompleter.setupTabCompletion(this, plugin);
+        FactionTabCompleter.setupTabCompletion(this);
     }
     
     @Override

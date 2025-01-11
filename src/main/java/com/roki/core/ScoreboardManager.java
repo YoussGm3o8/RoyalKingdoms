@@ -38,10 +38,11 @@ public class ScoreboardManager {
     public void updateScoreboard(Player player) {
         Scoreboard scoreboard = playerScoreboards.get(player);
         if (scoreboard == null) {
+            System.out.println("Scoreboard not found for player " + player.getName());
             createScoreboard(player);
             return;
         }
-
+        System.out.println("Updating scoreboard for player " + player.getName());
         scoreboard.holdUpdates(); // Pause updates for efficiency
         scoreboard.clear(); // Remove all existing scores
 
@@ -55,15 +56,15 @@ public class ScoreboardManager {
     private void updateScores(Player player, Scoreboard scoreboard) {
         Faction faction = plugin.getPlayerFaction(player);
 
-        // Add hidden line separator at the top (to ensure proper alignment)
-        scoreboard.setScore("§7---------------", 10);
+        // // Add hidden line separator at the top (to ensure proper alignment)
+        // scoreboard.setScore("§7---------------", 10);
 
         // Player name (top of the sidebar)
         scoreboard.setScore(player.getName(), 9);
 
         // Player's faction or "None"
         if (faction != null) {
-            scoreboard.setScore(faction.getColor() + " " + faction.getName(), 8);
+            scoreboard.setScore(faction.getName(), 8);
         } else {
             scoreboard.setScore(" ", 8);
         }
