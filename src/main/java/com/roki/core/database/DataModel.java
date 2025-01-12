@@ -24,8 +24,8 @@ public class DataModel {
     }
     
     // Player Methods
-    public void savePlayerData(Player player, String factionName) {
-        db.savePlayer(player, factionName);
+    public void savePlayerData(Player player, String factionName, String rank) {
+        db.savePlayer(player, factionName, rank);
     }
     
     public String getPlayerFaction(Player player) {

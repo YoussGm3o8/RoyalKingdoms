@@ -1,25 +1,22 @@
 package com.roki.core;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
-import cn.nukkit.Player;
 
 public class Faction {
     private String name;
-    private Map<String, Integer> votes;
+    private String Leader;
     private List<String> factionPlayers; 
     private double factionVaultBalance; // Vault balance for this faction
     private int factionKills; // Kills for this faction
 
-    public Faction(String name, double vaultBalance) {
+    public Faction(String name, double vaultBalance, String leader, int kills) {
         this.name = name;
+        this.Leader = leader;
         this.factionPlayers = new ArrayList<>();
         this.factionVaultBalance = vaultBalance;
-        this.factionKills = 0;
-        this.votes = new HashMap<>();
+        this.factionKills = kills;
     }
 
     public boolean containsPlayer(String playerName) {
@@ -71,6 +68,10 @@ public class Faction {
 
     public void addKills(int amount) {
         factionKills += amount;
+    }
+
+    public String getFactionLeader() {
+        return Leader;
     }
 
 }

@@ -1,7 +1,9 @@
 com\roki\core\FactionTabCompleter.class
 com\roki\core\Entities\EventListenerEdit.class
 com\roki\core\commands\FactionCommandController.class
+com\roki\core\commands\PortalCommandController$1.class
 com\roki\core\PlayerData.class
+com\roki\core\RoyalKingdomsCore$2.class
 com\roki\core\RoyalKingdomsCore.class
 com\roki\core\PlayerDataManager.class
 com\roki\core\Entities\PhoenixEntity.class
@@ -12,6 +14,7 @@ com\roki\core\commands\PortalCommandController.class
 com\roki\core\database\DataModel.class
 com\roki\core\RoyalKingdomsCore$1.class
 com\roki\core\FactionCommand.class
+com\roki\core\Entities\Minotaur.class
 com\roki\core\Portals\PortalEventListener.class
 com\roki\core\database\DatabaseManager.class
 com\roki\core\database\PlayerDataModel.class

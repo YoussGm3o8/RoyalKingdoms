@@ -15,10 +15,18 @@ commands:
     description: Create a portal
     permission: portalplugin.setportal
   summondragon:
-      description: Test
-      usage: /summondragon
+    description: Summons a dragon you can ride
+    usage: /summondragon
+  summonminotaur:
+    description: Summons a minotaur
+    usage: /summonminotaur
+    permission: royalkingdoms.summonminotaur
+  xyz:
+    description: Toggle coordinates display
+    usage: /xyz
+    permission: royalkingdoms.xyz
 
-# server commands
+  # server commands
   setwarp:
     description: Set a warp at the player's current location
     usage: /setwarp <name>
@@ -43,12 +51,12 @@ commands:
     usage: /warp <warp_name>
     permission: royalkingdoms.warp
   scoreboard:
-      description: Toggles the scoreboard display
-      usage: "/scoreboard"
-      permission: royalkingdoms.scoreboard
+    description: Toggles the scoreboard display
+    usage: "/scoreboard"
+    permission: royalkingdoms.scoreboard
   f:
     description: Factions command with various subcommands
-    usage: "/f <join|leave|info|money|topmoney|deposit|topkills|players|create|invite>"
+    usage: "/f <join|leave|info|money|topmoney|deposit|topkills|players|create|invite|promote|demote|ally|sethome|gui>"
     permission: royalkingdoms.f
     subcommands:
       join:
@@ -81,6 +89,21 @@ commands:
       invite:
         description: Invite a player to your faction
         permission: royalkingdoms.f.invite
+      promote:
+        description: Promote a faction member to Officer
+        permission: royalkingdoms.f.promote
+      demote:
+        description: Demote a faction member to Member
+        permission: royalkingdoms.f.demote
+      ally:
+        description: Manage faction alliances
+        permission: royalkingdoms.f.ally
+      sethome:
+        description: Set the faction home
+        permission: royalkingdoms.f.sethome
+      gui:
+        description: Open the faction management GUI
+        permission: royalkingdoms.f.gui
 
 permissions:
   portalstick:
@@ -127,10 +150,31 @@ permissions:
     default: true
   royalkingdoms.f.create:
     description: Allows players to create a new faction
-    default: op
+    default: true
   royalkingdoms.f.invite:
     description: Allows players to invite others to their faction
+    default: true
+  royalkingdoms.f.promote:
+    description: Allows faction leaders to promote members to Officer
+    default: true
+  royalkingdoms.f.demote:
+    description: Allows faction leaders to demote members to Member
+    default: true
+  royalkingdoms.f.ally:
+    description: Allows faction leaders to manage alliances
     default: true
   royalkingdoms.f.admin:
     description: Allows admins to manage faction settings (e.g., change vault balance)
     default: op
+  royalkingdoms.summonminotaur:
+    description: Allows players to summon a minotaur
+    default: op
+  royalkingdoms.xyz:
+    description: Allows players to toggle coordinates display
+    default: true
+  royalkingdoms.f.sethome:
+    description: Allows faction leaders to set the faction home
+    default: true
+  royalkingdoms.f.gui:
+    description: Allows players to open the faction management GUI
+    default: true

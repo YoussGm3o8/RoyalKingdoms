@@ -11,6 +11,7 @@ public class PlayerData {
     private final DatabaseManager dbManager;
 
     private String faction;
+    private String rank;
     private Location home;
     private Instant lastLogin;
     private long onlineTime; // in seconds
@@ -28,6 +29,23 @@ public class PlayerData {
 
     public String getFaction() {
         return faction;
+    }
+
+    public void setRank(String rank) {
+        this.rank = rank;
+        savePlayerData();
+    }
+
+    public String getRank() {
+        return rank;
+    }
+
+    public boolean isLeader() {
+        return "Leader".equals(rank);
+    }
+
+    public boolean isOfficer() {
+        return "Officer".equals(rank);
     }
 
     public void setHome(Location home) {
@@ -59,13 +77,14 @@ public class PlayerData {
     }
 
     public void savePlayerData() {
-        dbManager.savePlayerData(player.getUniqueId().toString(), player.getName(), faction, home, lastLogin, onlineTime);
+        dbManager.savePlayerData(player.getUniqueId().toString(), player.getName(), faction, rank, home, lastLogin, onlineTime);
     }
 
     private void loadPlayerData() {
         PlayerDataModel data = dbManager.loadPlayerData(player.getUniqueId().toString());
         if (data != null) {
             this.faction = data.getFaction();
+            this.rank = data.getRank();
             this.home = data.getHome();
             this.lastLogin = data.getLastLogin();
             this.onlineTime = data.getOnlineTime();

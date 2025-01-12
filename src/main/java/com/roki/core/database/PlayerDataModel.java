@@ -7,13 +7,15 @@ import cn.nukkit.level.Location;
 public class PlayerDataModel {
     private final String uuid;
     private final String faction;
+    private final String rank;
     private final Location home;
     private final Instant lastLogin;
     private final long onlineTime;
 
-    public PlayerDataModel(String uuid, String faction, Location home , Instant lastLogin, long onlineTime) {
+    public PlayerDataModel(String uuid, String faction, String rank, Location home , Instant lastLogin, long onlineTime) {
         this.uuid = uuid;
         this.faction = faction;
+        this.rank = rank;
         this.home = home;
         this.lastLogin = lastLogin;
         this.onlineTime = onlineTime;
@@ -37,5 +39,9 @@ public class PlayerDataModel {
 
     public long getOnlineTime() {
         return onlineTime;
+    }
+
+    public String getRank() {
+        return rank;
     }
 }
