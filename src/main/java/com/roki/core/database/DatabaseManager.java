@@ -4,6 +4,7 @@ import cn.nukkit.Player;
 import cn.nukkit.level.Location;
 import com.roki.core.Faction;
 import com.roki.core.RoyalKingdomsCore;
+import com.roki.core.chunkProtection.ProtectedChunkData;
 import java.sql.*;
 import java.time.Instant;
 import java.util.*;
@@ -249,7 +250,26 @@ public class DatabaseManager {
     // Faction Methods
     public void saveFaction(Faction faction) {
         String sql = """
-            INSERT OR REPLACE INTO factions (name, leader, vault_balance, kills)
+            UPDATE factions
+            SET leader = ?, vault_balance = ?, kills = ?
+            WHERE name = ?
+        """;
+        
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, faction.getFactionLeader());
+            pstmt.setDouble(2, faction.getVaultBalance());
+            pstmt.setInt(3, faction.getKills());
+            pstmt.setString(4, faction.getName());
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            plugin.getLogger().error("Failed to save faction", e);
+        }
+    }
+
+    public void createFaction(Faction faction) {
+        String sql = """
+            INSERT INTO factions (name, leader, vault_balance, kills)
             VALUES (?, ?, ?, ?)
         """;
         
@@ -261,7 +281,7 @@ public class DatabaseManager {
             pstmt.setInt(4, faction.getKills());
             pstmt.executeUpdate();
         } catch (SQLException e) {
-            plugin.getLogger().error("Failed to save faction", e);
+            plugin.getLogger().error("Failed to create faction", e);
         }
     }
 
@@ -736,5 +756,56 @@ public class DatabaseManager {
     public void saveOfflineMessage(String playerName, String message) {
         String sql = "INSERT INTO offline_messages (player_name, message) VALUES (?, ?)";
         executeUpdate(sql, playerName, message);
+    }
+
+    public void saveAllProtectedChunks(List<ProtectedChunkData> chunks) {
+        String deleteSQL = "DELETE FROM protected_chunks";
+        String insertSQL = "INSERT INTO protected_chunks (faction_name, world_name, chunk_x, chunk_z, shield_health) VALUES (?, ?, ?, ?, ?)";
+
+        try (Connection conn = connect();
+             Statement deleteStmt = conn.createStatement();
+             PreparedStatement insertStmt = conn.prepareStatement(insertSQL)) {
+
+            // Clear existing data
+            deleteStmt.executeUpdate(deleteSQL);
+
+            // Insert new data
+            for (ProtectedChunkData chunk : chunks) {
+                insertStmt.setString(1, chunk.getFactionName());
+                insertStmt.setString(2, chunk.getWorldName());
+                insertStmt.setInt(3, chunk.getChunkX());
+                insertStmt.setInt(4, chunk.getChunkZ());
+                insertStmt.setInt(5, chunk.getShieldHealth());
+                insertStmt.addBatch();
+            }
+            insertStmt.executeBatch();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public List<ProtectedChunkData> loadAllProtectedChunks() {
+        List<ProtectedChunkData> chunks = new ArrayList<>();
+        String selectSQL = "SELECT faction_name, world_name, chunk_x, chunk_z, shield_health FROM protected_chunks";
+
+        try (Connection conn = connect();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(selectSQL)) {
+
+            while (rs.next()) {
+                String factionName = rs.getString("faction_name");
+                String worldName = rs.getString("world_name");
+                int chunkX = rs.getInt("chunk_x");
+                int chunkZ = rs.getInt("chunk_z");
+                int shieldHealth = rs.getInt("shield_health");
+
+                ProtectedChunkData chunk = new ProtectedChunkData(factionName, worldName, chunkX, chunkZ);
+                chunk.setShieldHealth(shieldHealth);
+                chunks.add(chunk);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return chunks;
     }
 }

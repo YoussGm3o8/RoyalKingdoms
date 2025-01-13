@@ -2,34 +2,73 @@ package com.roki.core.commands;
 
 import cn.nukkit.Player;
 import cn.nukkit.command.CommandSender;
+import cn.nukkit.event.entity.EntityExplodeEvent;
+import cn.nukkit.event.player.PlayerMoveEvent;
+import cn.nukkit.level.GameRule;
+import cn.nukkit.level.GameRules;
+import cn.nukkit.level.Level;
 import cn.nukkit.level.Location;
+import cn.nukkit.level.format.Chunk;
+import cn.nukkit.network.protocol.GameRulesChangedPacket;
+import cn.nukkit.network.protocol.TextPacket;
+import cn.nukkit.level.particle.DustParticle;
+import cn.nukkit.math.Vector3;
+import cn.nukkit.scheduler.NukkitRunnable;
 
 import com.roki.core.Faction;
 import com.roki.core.FactionTabCompleter;
 import com.roki.core.PlayerData;
 import com.roki.core.PlayerDataManager;
 import com.roki.core.RoyalKingdomsCore;
+import com.roki.core.chunkProtection.ProtectedChunkData;
 import com.roki.core.database.DatabaseManager;
 import com.roki.core.database.DataModel;
 import me.onebone.economyapi.EconomyAPI;
+
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 import cn.nukkit.form.window.FormWindowSimple;
 import cn.nukkit.form.window.FormWindowCustom;
 import cn.nukkit.form.element.ElementButton;
 import cn.nukkit.form.element.ElementInput;
+import cn.nukkit.form.element.ElementToggle;
 import cn.nukkit.form.response.FormResponseSimple;
 import cn.nukkit.form.response.FormResponseCustom;
+import cn.nukkit.event.EventHandler;
+import cn.nukkit.event.Listener;
+import cn.nukkit.event.block.BlockBreakEvent;
+import cn.nukkit.event.block.BlockPlaceEvent;
+import cn.nukkit.event.player.PlayerTeleportEvent;
+import cn.nukkit.block.Block;
+import cn.nukkit.entity.item.EntityPrimedTNT;
 
-public class FactionCommandController {
+import java.util.concurrent.ConcurrentHashMap;
+
+public class FactionCommandController implements Listener {
     private final RoyalKingdomsCore plugin;
     private final DataModel dataModel;
     private final DatabaseManager db;
     private final Map<String, String> invites = new HashMap<>();
     private final Map<String, String> allyRequests = new HashMap<>();
     private Map<Player, Boolean> coordinatesEnabled = new HashMap<>();
+    private Map<Player, ChatMode> chatModes = new HashMap<>();
+    private List<Player> spyMode = new ArrayList<>();
+    private final Map<String, List<ProtectedChunkData>> protectedChunks = new ConcurrentHashMap<>();
+    private final Map<String, Map<String, Boolean>> memberPermissions = new HashMap<>();
+    private final Map<String, Map<String, Boolean>> allyPermissions = new HashMap<>();
+    private final Set<Integer> processedResponses = new HashSet<>();
+    private static final int CLAIM_COST = 16000;
+    private static final int MAX_CHESTS = 2;
+
+    public enum ChatMode {
+        ALL, FACTION, ALLY
+    }
 
     public FactionCommandController(RoyalKingdomsCore plugin) {
         this.plugin = plugin;
@@ -84,7 +123,7 @@ public class FactionCommandController {
                 }
                 player.sendMessage("");
                 player.sendMessage(color + "Faction: " + info.getName());
-                player.sendMessage(color +"Leader: §7$" + info.getFactionLeader());
+                player.sendMessage(color +"Leader: §7" + info.getFactionLeader());
                 sendFactionPlayersInfo(player, requestedFaction);
                 player.sendMessage(color +"Balance: §7$" + info.getVaultBalance());
                 player.sendMessage(color + "Kills: §7" + info.getKills());
@@ -400,18 +439,11 @@ public class FactionCommandController {
         }
 
         Faction newFaction = new Faction(factionName, 0.0, player.getName(), 0);
-        db.saveFaction(newFaction);
+        db.createFaction(newFaction);
         db.addPlayerToFaction(player.getUniqueId().toString(), player.getName(), factionName, "Leader");
-        db.savePlayer(player, factionName, "Leader");
         player.sendMessage("§aFaction " + factionName + " has been created and you have joined it!");
+        plugin.getScoreboardManager().updateScoreboard(player);
 
-
-        PlayerDataManager playerDataManager = plugin.getPlayerDataManager();
-        PlayerData playerData = playerDataManager.getPlayerData(player);
-        System.out.println(playerData.getFaction());
-
-
-        
         return true;
     }
 
@@ -475,12 +507,26 @@ public class FactionCommandController {
 
         if (isEnabled) {
             player.sendMessage("§cCoordinates display has been disabled.");
+            setCoordinates(player, false);
         } else {
             player.sendMessage("§aCoordinates display has been enabled.");
+            setCoordinates(player, true);
         }
 
         coordinatesEnabled.put(player, !isEnabled);
         return true;
+    }
+
+    public void setCoordinates(Player player, boolean enable) {
+        GameRulesChangedPacket packet = new GameRulesChangedPacket();
+
+        GameRules levelGameRules = player.getLevel().getGameRules();
+        GameRules gameRules = GameRules.getDefault();
+        gameRules.readNBT(levelGameRules.writeNBT());
+        gameRules.setGameRule(GameRule.SHOW_COORDINATES, enable);
+        packet.gameRules = gameRules;
+
+        player.dataPacket(packet);
     }
 
     public void createFaction(String factionName) {
@@ -501,6 +547,27 @@ public class FactionCommandController {
             db.removeAlly(ally, factionName);
             notifyFactionMembers(factionName, "§cThe alliance with " + ally + " has been dissolved.");
             notifyFactionMembers(ally, "§cThe alliance with " + factionName + " has been dissolved.");
+        }
+    }
+
+    private void showDisbandFactionConfirmation(Player player) {
+        FormWindowSimple confirmGui = new FormWindowSimple("Disband Faction", "Are you sure you want to disband your faction?");
+        confirmGui.addButton(new ElementButton("Yes"));
+        confirmGui.addButton(new ElementButton("No"));
+        player.showFormWindow(confirmGui);
+    }
+
+    public void handleDisbandFactionConfirmationResponse(Player player, FormResponseSimple response) {
+        if (response == null || processedResponses.contains(response.hashCode())) {
+            return;
+        }
+        processedResponses.add(response.hashCode());
+        String buttonText = response.getClickedButton().getText();
+        if (buttonText.equals("Yes")) {
+            handleDisbandFactionCommand(player);
+            plugin.getScoreboardManager().updateScoreboard(player);
+        } else {
+            handleFactionGuiCommand(player);
         }
     }
 
@@ -702,7 +769,7 @@ public class FactionCommandController {
         }
     }
 
-    public boolean handleFactionSetHomeCommand(Player player, String[] args) {
+    public boolean handleFactionSetHomeCommand(Player player) {
         if (!"world".equals(player.getLevel().getName())) {
             player.sendMessage("§cYou can only set the faction home in the world 'world'.");
             return true;
@@ -737,26 +804,25 @@ public class FactionCommandController {
             gui.addButton(new ElementButton("Join Faction"));
             gui.addButton(new ElementButton("Create Faction"));
         } else {
-            gui.addButton(new ElementButton("§7Join Faction (Already in a faction)"));
             gui.addButton(new ElementButton("Leave Faction"));
             gui.addButton(new ElementButton("Faction Info"));
-            gui.addButton(new ElementButton("Faction Money"));
             gui.addButton(new ElementButton("Top Money"));
             gui.addButton(new ElementButton("Deposit Money"));
             gui.addButton(new ElementButton("Top Kills"));
-            gui.addButton(new ElementButton("Faction Players"));
+            gui.addButton(new ElementButton("Faction Home"));
             if (isLeader) {
                 gui.addButton(new ElementButton("Leader Tools"));
-            } else {
-                gui.addButton(new ElementButton("§7Leader Tools (Not a leader)"));
             }
         }
-
         player.showFormWindow(gui);
         return true;
     }
 
     public void handleGuiResponse(Player player, FormResponseSimple response) {
+        if (response == null || processedResponses.contains(response.hashCode())) {
+            return;
+        }
+        processedResponses.add(response.hashCode());
         String buttonText = response.getClickedButton().getText();
 
         switch (buttonText) {
@@ -764,13 +830,10 @@ public class FactionCommandController {
                 showFactionInvites(player);
                 break;
             case "Leave Faction":
-                handleLeaveFactionCommand(player);
+                showLeaveFactionConfirmation(player);
                 break;
             case "Faction Info":
                 showFactionList(player);
-                break;
-            case "Faction Money":
-                handleFactionMoneyCommand(player, new String[]{"money"});
                 break;
             case "Top Money":
                 handleFactionTopMoneyCommand(player);
@@ -784,6 +847,9 @@ public class FactionCommandController {
             case "Faction Players":
                 handleFactionPlayersCommand(player, new String[]{"players"});
                 break;
+            case "Faction Home":
+                handleFactionHomeCommand(player);
+                break;
             case "Create Faction":
                 showCreateFactionForm(player);
                 break;
@@ -793,6 +859,27 @@ public class FactionCommandController {
             default:
                 player.sendMessage("§cInvalid action.");
                 break;
+        }
+    }
+
+    private void showLeaveFactionConfirmation(Player player) {
+        FormWindowSimple confirmGui = new FormWindowSimple("Leave Faction", "Are you sure you want to leave your faction?");
+        confirmGui.addButton(new ElementButton("Yes"));
+        confirmGui.addButton(new ElementButton("No"));
+        player.showFormWindow(confirmGui);
+    }
+
+    public void handleLeaveFactionConfirmationResponse(Player player, FormResponseSimple response) {
+        if (response == null || processedResponses.contains(response.hashCode())) {
+            return;
+        }
+        processedResponses.add(response.hashCode());
+        String buttonText = response.getClickedButton().getText();
+        if (buttonText.equals("Yes")) {
+            handleLeaveFactionCommand(player);
+            plugin.getScoreboardManager().updateScoreboard(player);
+        } else {
+            handleFactionGuiCommand(player);
         }
     }
 
@@ -808,6 +895,10 @@ public class FactionCommandController {
     }
 
     public void handleFactionListGuiResponse(Player player, FormResponseSimple response) {
+        if (response == null || processedResponses.contains(response.hashCode())) {
+            return;
+        }
+        processedResponses.add(response.hashCode());
         String buttonText = response.getClickedButton().getText();
         if (buttonText.equals("Back")) {
             handleFactionGuiCommand(player);
@@ -858,6 +949,10 @@ public class FactionCommandController {
     }
 
     public void handleLeaderGuiResponse(Player player, FormResponseSimple response) {
+        if (response == null || processedResponses.contains(response.hashCode())) {
+            return;
+        }
+        processedResponses.add(response.hashCode());
         String buttonText = response.getClickedButton().getText();
 
         switch (buttonText) {
@@ -874,10 +969,10 @@ public class FactionCommandController {
                 showAllianceManagement(player);
                 break;
             case "Set Faction Home":
-                handleFactionSetHomeCommand(player, new String[]{"sethome"});
+                handleFactionSetHomeCommand(player);
                 break;
             case "Disband Faction":
-                handleDisbandFactionCommand(player);
+                showDisbandFactionConfirmation(player);
                 break;
             case "Back":
                 handleFactionGuiCommand(player);
@@ -927,6 +1022,10 @@ public class FactionCommandController {
     }
 
     public void handlePromoteDemoteGuiResponse(Player player, FormResponseSimple response, String action) {
+        if (response == null || processedResponses.contains(response.hashCode())) {
+            return;
+        }
+        processedResponses.add(response.hashCode());
         String buttonText = response.getClickedButton().getText();
         if (buttonText.equals("Back")) {
             showLeaderTools(player);
@@ -953,6 +1052,10 @@ public class FactionCommandController {
     }
 
     public void handleInvitePlayerGuiResponse(Player player, FormResponseSimple response) {
+        if (response == null || processedResponses.contains(response.hashCode())) {
+            return;
+        }
+        processedResponses.add(response.hashCode());
         String buttonText = response.getClickedButton().getText();
         if (buttonText.equals("Back")) {
             showLeaderTools(player);
@@ -962,6 +1065,10 @@ public class FactionCommandController {
     }
 
     public void handleInviteGuiResponse(Player player, FormResponseSimple response) {
+        if (response == null || processedResponses.contains(response.hashCode())) {
+            return;
+        }
+        processedResponses.add(response.hashCode());
         String buttonText = response.getClickedButton().getText();
         if (buttonText.equals("Back")) {
             handleFactionGuiCommand(player);
@@ -990,6 +1097,10 @@ public class FactionCommandController {
     }
 
     public void handleAllianceManagementGuiResponse(Player player, FormResponseSimple response) {
+        if (response == null || processedResponses.contains(response.hashCode())) {
+            return;
+        }
+        processedResponses.add(response.hashCode());
         String buttonText = response.getClickedButton().getText();
         if (buttonText.equals("Back")) {
             showLeaderTools(player);
@@ -1004,13 +1115,25 @@ public class FactionCommandController {
         allianceActionsGui.addButton(new ElementButton("Request Alliance"));
         allianceActionsGui.addButton(new ElementButton("Accept Alliance"));
         allianceActionsGui.addButton(new ElementButton("Reject Alliance"));
-        allianceActionsGui.addButton(new ElementButton("Dissolve Alliance"));
+
+        String playerFaction = db.getPlayerFaction(player.getUniqueId().toString());
+        boolean isAllied = db.isAlly(playerFaction, targetFaction);
+        if (isAllied) {
+            allianceActionsGui.addButton(new ElementButton("Dissolve Alliance"));
+        } else {
+            allianceActionsGui.addButton(new ElementButton("§7Dissolve Alliance (Not in an alliance)"));
+        }
+
         allianceActionsGui.addButton(new ElementButton("Back"));
 
         player.showFormWindow(allianceActionsGui);
     }
 
     public void handleAllianceActionsGuiResponse(Player player, FormResponseSimple response, String targetFaction) {
+        if (response == null || processedResponses.contains(response.hashCode())) {
+            return;
+        }
+        processedResponses.add(response.hashCode());
         String buttonText = response.getClickedButton().getText();
         if (buttonText.equals("Back")) {
             showAllianceManagement(player);
@@ -1042,6 +1165,10 @@ public class FactionCommandController {
     }
 
     public void handleCreateFactionFormResponse(Player player, FormResponseCustom response) {
+        if (response == null || processedResponses.contains(response.hashCode())) {
+            return;
+        }
+        processedResponses.add(response.hashCode());
         String factionName = response.getInputResponse(0);
         if (factionName == null || factionName.trim().isEmpty()) {
             player.sendMessage("§cFaction name cannot be empty.");
@@ -1058,6 +1185,10 @@ public class FactionCommandController {
     }
 
     public void handleDepositMoneyFormResponse(Player player, FormResponseCustom response) {
+        if (response == null || processedResponses.contains(response.hashCode())) {
+            return;
+        }
+        processedResponses.add(response.hashCode());
         String amountStr = response.getInputResponse(0);
         if (amountStr == null || amountStr.trim().isEmpty()) {
             player.sendMessage("§cAmount cannot be empty.");
@@ -1069,6 +1200,260 @@ public class FactionCommandController {
             handleFactionDepositCommand(player, new String[]{"deposit", amountStr});
         } catch (NumberFormatException e) {
             player.sendMessage("§cInvalid amount.");
+        }
+    }
+
+    public boolean handleChatCommand(Player player) {
+        ChatMode currentMode = chatModes.getOrDefault(player, ChatMode.ALL);
+        ChatMode newMode;
+        String factionName = db.getPlayerFaction(player.getUniqueId().toString());
+        List<String> allies = factionName != null ? db.getAllies(factionName) : new ArrayList<>();
+
+        switch (currentMode) {
+            case ALL:
+                newMode = ChatMode.FACTION;
+                break;
+            case FACTION:
+                newMode = allies.isEmpty() ? ChatMode.ALL : ChatMode.ALLY;
+                break;
+            case ALLY:
+            default:
+                newMode = ChatMode.ALL;
+                break;
+        }
+
+        chatModes.put(player, newMode);
+        player.sendMessage("§aChat mode set to " + newMode.name().toLowerCase() + ".");
+        return true;
+    }
+
+    public boolean handleSpyCommand(Player player) {
+        if (spyMode.contains(player)) {
+            spyMode.remove(player);
+            player.sendMessage("§cSpy mode disabled.");
+        } else {
+            spyMode.add(player);
+            player.sendMessage("§aSpy mode enabled.");
+        }
+        return true;
+    }
+
+    public void handlePlayerChat(Player player, String message) {
+        ChatMode mode = chatModes.getOrDefault(player, ChatMode.ALL);
+        String factionName = db.getPlayerFaction(player.getUniqueId().toString());
+        List<Player> recipients = new ArrayList<>();
+
+        switch (mode) {
+            case FACTION:
+                if (factionName != null) {
+                    recipients = db.getFactionPlayers(factionName).stream()
+                        .map(name -> plugin.getServer().getPlayer(name))
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toList());
+                }
+                break;
+            case ALLY:
+                if (factionName != null) {
+                    List<String> allies = db.getAllies(factionName);
+                    allies.add(factionName); // Include the player's own faction
+                    recipients = allies.stream()
+                        .flatMap(ally -> db.getFactionPlayers(ally).stream())
+                        .map(name -> plugin.getServer().getPlayer(name))
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toList());
+                }
+                break;
+            case ALL:
+            default:
+                recipients.addAll(plugin.getServer().getOnlinePlayers().values());
+                break;
+        }
+
+        for (Player recipient : recipients) {
+            recipient.sendMessage("§7[" + mode.name().toLowerCase() + "] " + player.getName() + ": " + message);
+        }
+
+        for (Player spy : spyMode) {
+            spy.sendMessage("§c[Spy] " + player.getName() + ": " + message);
+        }
+    }
+
+    public boolean handleAdminCommand(Player player) {
+        if (!player.hasPermission("royalkingdoms.f.admin")) {
+            player.sendMessage("§cYou do not have permission to use this command.");
+            return true;
+        }
+
+        showAdminGui(player);
+        return true;
+    }
+
+    private void showAdminGui(Player player) {
+        FormWindowSimple adminGui = new FormWindowSimple("Admin Faction Management", "Select a faction to manage:");
+
+        db.getAllFactionNames().forEach(factionName -> {
+            adminGui.addButton(new ElementButton(factionName));
+        });
+
+        player.showFormWindow(adminGui);
+    }
+
+    private void showFactionAdminOptions(Player player, String factionName) {
+        FormWindowSimple factionAdminOptionsGui = new FormWindowSimple("Manage Faction: " + factionName, "Select an action:");
+
+        factionAdminOptionsGui.addButton(new ElementButton("Modify Vault Balance"));
+        factionAdminOptionsGui.addButton(new ElementButton("Modify Kills"));
+        factionAdminOptionsGui.addButton(new ElementButton("Change Leader"));
+        factionAdminOptionsGui.addButton(new ElementButton("View Shield Locations"));
+        factionAdminOptionsGui.addButton(new ElementButton("Back"));
+
+        player.showFormWindow(factionAdminOptionsGui);
+    }
+
+    public void handleAdminGuiResponse(Player player, FormResponseSimple response) {
+        if (response == null || processedResponses.contains(response.hashCode())) {
+            return;
+        }
+        processedResponses.add(response.hashCode());
+        String factionName = response.getClickedButton().getText();
+        plugin.getLogger().info("Admin GUI response: " + factionName);
+        showFactionAdminOptions(player, factionName);
+    }
+
+    public void handleFactionAdminOptionsResponse(Player player, FormResponseSimple response, String factionName) {
+        if (response == null || processedResponses.contains(response.hashCode())) {
+            return;
+        }
+        processedResponses.add(response.hashCode());
+        String buttonText = response.getClickedButton().getText();
+        plugin.getLogger().info("Faction Admin Options response: " + buttonText);
+
+        switch (buttonText) {
+            case "Modify Vault Balance":
+                showModifyVaultBalanceForm(player, factionName);
+                break;
+            case "Modify Kills":
+                showModifyKillsForm(player, factionName);
+                break;
+            case "Change Leader":
+                showChangeLeaderForm(player, factionName);
+                break;
+            case "View Shield Locations":
+                showShieldLocations(player, factionName);
+                break;
+            case "Back":
+                showAdminGui(player);
+                break;
+            default:
+                player.sendMessage("§cInvalid action.");
+                break;
+        }
+    }
+
+    private void showModifyVaultBalanceForm(Player player, String factionName) {
+        FormWindowCustom modifyVaultBalanceForm = new FormWindowCustom("Modify Vault Balance: " + factionName);
+        modifyVaultBalanceForm.addElement(new ElementInput("New Vault Balance", "Enter new vault balance"));
+        player.showFormWindow(modifyVaultBalanceForm);
+    }
+
+    public void handleModifyVaultBalanceFormResponse(Player player, FormResponseCustom response, String factionName) {
+        if (response == null || processedResponses.contains(response.hashCode())) {
+            return;
+        }
+        processedResponses.add(response.hashCode());
+        String balanceStr = response.getInputResponse(0);
+        plugin.getLogger().info("Modify Vault Balance response: " + balanceStr);
+
+        if (balanceStr == null || balanceStr.trim().isEmpty()) {
+            player.sendMessage("§cVault balance cannot be empty.");
+            return;
+        }
+
+        try {
+            double balance = Double.parseDouble(balanceStr);
+            Faction faction = db.getFactionInfo(factionName);
+            if (faction != null) {
+                faction.setVaultBalance(balance);
+                db.saveFaction(faction);
+                player.sendMessage("§aVault balance updated successfully!");
+            } else {
+                player.sendMessage("§cFaction not found.");
+            }
+        } catch (NumberFormatException e) {
+            player.sendMessage("§cInvalid vault balance.");
+        }
+    }
+
+    private void showModifyKillsForm(Player player, String factionName) {
+        FormWindowCustom modifyKillsForm = new FormWindowCustom("Modify Kills: " + factionName);
+        modifyKillsForm.addElement(new ElementInput("New Kills", "Enter new kills number"));
+        player.showFormWindow(modifyKillsForm);
+    }
+
+    public void handleModifyKillsFormResponse(Player player, FormResponseCustom response, String factionName) {
+        if (response == null || processedResponses.contains(response.hashCode())) {
+            return;
+        }
+        processedResponses.add(response.hashCode());
+        String killsStr = response.getInputResponse(0);
+        plugin.getLogger().info("Modify Kills response: " + killsStr);
+
+        if (killsStr == null || killsStr.trim().isEmpty()) {
+            player.sendMessage("§cKills number cannot be empty.");
+            return;
+        }
+
+        try {
+            int kills = Integer.parseInt(killsStr);
+            Faction faction = db.getFactionInfo(factionName);
+            if (faction != null) {
+                faction.setKills(kills);
+                db.saveFaction(faction);
+                player.sendMessage("§aKills number updated successfully!");
+            } else {
+                player.sendMessage("§cFaction not found.");
+            }
+        } catch (NumberFormatException e) {
+            player.sendMessage("§cInvalid kills number.");
+        }
+    }
+
+    private void showChangeLeaderForm(Player player, String factionName) {
+        FormWindowCustom changeLeaderForm = new FormWindowCustom("Change Leader: " + factionName);
+        changeLeaderForm.addElement(new ElementInput("New Leader", "Enter new leader's name"));
+        player.showFormWindow(changeLeaderForm);
+    }
+
+    public void handleChangeLeaderFormResponse(Player player, FormResponseCustom response, String factionName) {
+        if (response == null || processedResponses.contains(response.hashCode())) {
+            return;
+        }
+        processedResponses.add(response.hashCode());
+        String newLeader = response.getInputResponse(0);
+        plugin.getLogger().info("Change Leader response: " + newLeader);
+
+        if (newLeader == null || newLeader.trim().isEmpty()) {
+            player.sendMessage("§cLeader name cannot be empty.");
+            return;
+        }
+
+        Faction faction = db.getFactionInfo(factionName);
+        faction.setLeader(newLeader);
+        db.saveFaction(faction);
+        player.sendMessage("§aLeader updated successfully!");
+    }
+
+    private void showShieldLocations(Player player, String factionName) {
+        List<ProtectedChunkData> claims = protectedChunks.get(factionName);
+
+        if (claims == null || claims.isEmpty()) {
+            player.sendMessage("§cThis faction has no claimed chunks.");
+            return;
+        }
+
+        player.sendMessage("§aClaimed chunks for faction " + factionName + ":");
+        for (ProtectedChunkData chunk : claims) {
+            player.sendMessage("§7- Chunk at (" + chunk.getChunkX() + ", " + chunk.getChunkZ() + ")");
         }
     }
 }

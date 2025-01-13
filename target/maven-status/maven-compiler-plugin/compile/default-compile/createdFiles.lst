@@ -3,6 +3,7 @@ com\roki\core\Entities\EventListenerEdit.class
 com\roki\core\commands\FactionCommandController.class
 com\roki\core\commands\PortalCommandController$1.class
 com\roki\core\PlayerData.class
+com\roki\core\commands\FactionCommandController$ChatMode.class
 com\roki\core\RoyalKingdomsCore$2.class
 com\roki\core\RoyalKingdomsCore.class
 com\roki\core\PlayerDataManager.class

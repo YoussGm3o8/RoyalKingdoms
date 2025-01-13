@@ -74,4 +74,8 @@ public class Faction {
         return Leader;
     }
 
+    public void setLeader(String newLeader) {
+        this.Leader = newLeader;
+    }
+
 }

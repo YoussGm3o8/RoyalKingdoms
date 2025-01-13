@@ -3,5 +3,6 @@
     "cSpell.words": [
         "Despawn",
         "roki"
-    ]
+    ],
+    "java.compile.nullAnalysis.mode": "automatic"
 }
