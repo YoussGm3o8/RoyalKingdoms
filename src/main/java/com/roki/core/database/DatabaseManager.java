@@ -113,6 +113,18 @@ public class DatabaseManager {
                 faction2 TEXT NOT NULL,
                 PRIMARY KEY (faction1, faction2)
             )
+            """,
+            
+            // Protected chunks table
+            """
+            CREATE TABLE IF NOT EXISTS protected_chunks (
+                faction_name TEXT NOT NULL,
+                world_name TEXT NOT NULL,
+                chunk_x INTEGER NOT NULL,
+                chunk_z INTEGER NOT NULL,
+                shield_health INTEGER NOT NULL,
+                PRIMARY KEY (world_name, chunk_x, chunk_z)
+            )
             """
         };
 
@@ -807,5 +819,23 @@ public class DatabaseManager {
             e.printStackTrace();
         }
         return chunks;
+    }
+
+    public void saveMemberPermissions(Map<String, Map<String, Boolean>> permissions) {
+        // Implement the logic to save member permissions to the database
+    }
+
+    public void saveAllyPermissions(Map<String, Map<String, Boolean>> permissions) {
+        // Implement the logic to save ally permissions to the database
+    }
+
+    public Map<String, Map<String, Boolean>> loadMemberPermissions() {
+        // Implement the logic to load member permissions from the database
+        return new HashMap<>();
+    }
+
+    public Map<String, Map<String, Boolean>> loadAllyPermissions() {
+        // Implement the logic to load ally permissions from the database
+        return new HashMap<>();
     }
 }

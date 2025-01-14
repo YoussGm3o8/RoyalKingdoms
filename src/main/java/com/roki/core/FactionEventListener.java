@@ -63,12 +63,12 @@ public class FactionEventListener implements Listener {
 
     @EventHandler
     public void onExplosion(EntityExplodeEvent event) {
-        plugin.getFactionShieldManager().handleExplosionEvent(event);
+        plugin.getFactionShieldManager().onEntityExplode(event);
     }
 
     @EventHandler
     public void onPlayerMove(PlayerMoveEvent event) {
-        plugin.getFactionShieldManager().handlePlayerMoveEvent(event);
+        plugin.getFactionShieldManager().onPlayerMove(event);
     }
 
     @EventHandler

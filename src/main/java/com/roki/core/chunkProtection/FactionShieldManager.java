@@ -41,29 +41,46 @@ import java.util.concurrent.ConcurrentHashMap;
 public class FactionShieldManager implements Listener {
     private final RoyalKingdomsCore plugin;
     private final DatabaseManager db;
-    private final Map<String, List<ProtectedChunkData>> protectedChunks = new ConcurrentHashMap<>();
-    private final Map<String, Map<String, Boolean>> memberPermissions = new HashMap<>();
-    private final Map<String, Map<String, Boolean>> allyPermissions = new HashMap<>();
+    private final Map<String, ProtectedChunkData> protectedChunks = new ConcurrentHashMap<>();
+    private final Map<String, Map<String, Boolean>> memberPermissions = new ConcurrentHashMap<>();
+    private final Map<String, Map<String, Boolean>> allyPermissions = new ConcurrentHashMap<>();
     private final Set<Integer> processedResponses = new HashSet<>();
 
     public FactionShieldManager(RoyalKingdomsCore plugin, DatabaseManager db) {
         this.plugin = plugin;
         this.db = db;
         loadProtectedChunks();
+        loadPermissions();
     }
 
     private void loadProtectedChunks() {
         List<ProtectedChunkData> loadedChunks = db.loadAllProtectedChunks();
         for (ProtectedChunkData chunk : loadedChunks) {
-            String chunkKey = chunk.getWorldName() + ":" + chunk.getChunkX() + ":" + chunk.getChunkZ();
-            protectedChunks.computeIfAbsent(chunkKey, k -> new ArrayList<>()).add(chunk);
+            String chunkKey = getChunkKey(chunk.getWorldName(), chunk.getChunkX(), chunk.getChunkZ());
+            protectedChunks.put(chunkKey, chunk);
         }
         plugin.getLogger().info("Loaded " + loadedChunks.size() + " protected chunks.");
     }
 
+    private void loadPermissions() {
+        // Load member and ally permissions from the database
+        // This is a placeholder, implement the actual loading logic
+        // Example:
+        // memberPermissions = db.loadMemberPermissions();
+        // allyPermissions = db.loadAllyPermissions();
+    }
+
     public void saveProtectedChunks() {
-        db.saveAllProtectedChunks(new ArrayList<>(protectedChunks.values().stream().flatMap(List::stream).toList()));
+        db.saveAllProtectedChunks(new ArrayList<>(protectedChunks.values()));
         plugin.getLogger().info("Saved " + protectedChunks.size() + " protected chunks.");
+    }
+
+    public void savePermissions() {
+        // Save member and ally permissions to the database
+        // This is a placeholder, implement the actual saving logic
+        // Example:
+        // db.saveMemberPermissions(memberPermissions);
+        // db.saveAllyPermissions(allyPermissions);
     }
 
     private void claimChunk(Player player) {
@@ -76,45 +93,30 @@ public class FactionShieldManager implements Listener {
             return;
         }
 
-        ProtectedChunkData chunk = new ProtectedChunkData(db.getPlayerFaction(player.getUniqueId().toString()), player.getLevel().getName(), player.getChunkX(), player.getChunkZ());
-
-        // Check if the chunk is already claimed
-        for (List<ProtectedChunkData> protectedChunkList : protectedChunks.values()) {
-            for (ProtectedChunkData protectedChunk : protectedChunkList) {
-                if (protectedChunk.getChunk(player.getLevel()).equals(chunk)) {
-                    player.sendMessage("§cThis chunk is already claimed by another faction.");
-                    return;
-                }
-            }
+        String chunkKey = getChunkKey(player.getLevel().getName(), player.getChunkX(), player.getChunkZ());
+        if (protectedChunks.containsKey(chunkKey)) {
+            player.sendMessage("§cThis chunk is already claimed.");
+            return;
         }
 
-        if (protectedChunks.containsKey(factionName) && protectedChunks.get(factionName).size() >= 12) {
+        if (protectedChunks.values().stream().filter(chunk -> chunk.getFactionName().equals(factionName)).count() >= 12) {
             player.sendMessage("§cYour faction has reached the maximum number of claims (12).");
             return;
         }
 
-        if (faction.getKills() < 10 && faction.getVaultBalance() < 128000) {
-            player.sendMessage("§cYour faction needs at least 10 kills to claim land and $128,000 in the vault.");
+        if (faction.getKills() < 10 || faction.getVaultBalance() < 128000) {
+            player.sendMessage("§cYour faction needs at least 10 kills and $128,000 in the vault to claim land.");
             return;
         }
 
-        if (faction.getKills() < 10) {
-            player.sendMessage("§cYour faction needs at least 10 kills to claim land.");
-            return;
-        }
-
-        if (faction.getVaultBalance() < 128000) {
-            player.sendMessage("§cYour faction needs at least $128,000 in the vault to claim land.");
-            return;
-        }
-
-        if (!isNeighboringChunk(factionName, chunk)) {
+        if (!isNeighboringChunk(factionName, player.getLevel().getName(), player.getChunkX(), player.getChunkZ())) {
             player.sendMessage("§cYou can only claim neighboring chunks.");
             return;
         }
 
-        protectedChunks.computeIfAbsent(factionName, k -> new ArrayList<>()).add(new ProtectedChunkData(factionName, player.getLevel().getName(), player.getChunkX(), player.getChunkZ()));
-        protectedChunks.get(factionName).get(protectedChunks.get(factionName).size() - 1).setShieldHealth(64);
+        ProtectedChunkData newChunk = new ProtectedChunkData(factionName, player.getLevel().getName(), player.getChunkX(), player.getChunkZ());
+        newChunk.setShieldHealth(64);
+        protectedChunks.put(chunkKey, newChunk);
 
         faction.setKills(faction.getKills() - 10);
         faction.setVaultBalance(faction.getVaultBalance() - 128000);
@@ -127,8 +129,8 @@ public class FactionShieldManager implements Listener {
     @EventHandler
     public void onBlockPlace(BlockPlaceEvent event) {
         Player player = event.getPlayer();
-        String chunkKey = getChunkKey(event.getBlock().getLocation());
-        ProtectedChunkData chunk = getProtectedChunk(chunkKey);
+        String chunkKey = getChunkKey(event.getBlock().getLevel().getName(), event.getBlock().getChunkX(), event.getBlock().getChunkZ());
+        ProtectedChunkData chunk = protectedChunks.get(chunkKey);
         String factionName = db.getPlayerFaction(player.getUniqueId().toString());
 
         if (chunk != null && (factionName == null || !factionName.equals(chunk.getFactionName()))) {
@@ -140,8 +142,8 @@ public class FactionShieldManager implements Listener {
     @EventHandler
     public void onBlockBreak(BlockBreakEvent event) {
         Player player = event.getPlayer();
-        String chunkKey = getChunkKey(event.getBlock().getLocation());
-        ProtectedChunkData chunk = getProtectedChunk(chunkKey);
+        String chunkKey = getChunkKey(event.getBlock().getLevel().getName(), event.getBlock().getChunkX(), event.getBlock().getChunkZ());
+        ProtectedChunkData chunk = protectedChunks.get(chunkKey);
         String factionName = db.getPlayerFaction(player.getUniqueId().toString());
 
         if (chunk != null && (factionName == null || !factionName.equals(chunk.getFactionName()))) {
@@ -154,7 +156,7 @@ public class FactionShieldManager implements Listener {
     public void onPlayerTeleport(PlayerTeleportEvent event) {
         Player player = event.getPlayer();
         String chunkKey = getChunkKey(event.getTo());
-        ProtectedChunkData chunk = getProtectedChunk(chunkKey);
+        ProtectedChunkData chunk = protectedChunks.get(chunkKey);
         String factionName = db.getPlayerFaction(player.getUniqueId().toString());
 
         if (chunk != null && (factionName == null || !factionName.equals(chunk.getFactionName()))) {
@@ -163,34 +165,18 @@ public class FactionShieldManager implements Listener {
         }
     }
 
-    private boolean isNeighboringChunk(String factionName, ProtectedChunkData chunk) {
-        List<ProtectedChunkData> claims = protectedChunks.get(factionName);
-        if (claims == null || claims.isEmpty()) {
-            return true;
-        }
+    @EventHandler
+    public void onPlayerMove(PlayerMoveEvent event) {
+        Player player = event.getPlayer();
+        String chunkKey = getChunkKey(event.getTo());
+        ProtectedChunkData chunk = protectedChunks.get(chunkKey);
+        String factionName = db.getPlayerFaction(player.getUniqueId().toString());
 
-        for (ProtectedChunkData claimedChunk : claims) {
-            if (Math.abs(claimedChunk.getChunkX() - chunk.getChunkX()) <= 1 && Math.abs(claimedChunk.getChunkZ() - chunk.getChunkZ()) <= 1) {
-                return true;
+        if (chunk != null && (factionName == null || !factionName.equals(chunk.getFactionName()))) {
+            if (!getAllyPermission(player, "enter_chunk")) {
+                player.sendMessage("§cYou cannot enter this chunk. It is protected by a faction shield.");
+                event.setCancelled(true);
             }
-        }
-
-        return false;
-    }
-
-    private void viewClaims(Player player) {
-        PlayerData playerData = plugin.getPlayerDataManager().getPlayerData(player);
-        String factionName = playerData.getFaction();
-        List<ProtectedChunkData> claims = protectedChunks.get(factionName);
-
-        if (claims == null || claims.isEmpty()) {
-            player.sendMessage("§cYour faction has no claimed chunks.");
-            return;
-        }
-
-        player.sendMessage("§aYour faction's claimed chunks:");
-        for (ProtectedChunkData chunk : claims) {
-            player.sendMessage("§7- Chunk at (" + chunk.getChunkX() + ", " + chunk.getChunkZ() + ")");
         }
     }
 
@@ -207,130 +193,40 @@ public class FactionShieldManager implements Listener {
         }
 
         for (Block block : event.getBlockList()) {
-            String chunkKey = getChunkKey(block.getLocation());
-            ProtectedChunkData chunk = getProtectedChunk(chunkKey);
-            if (chunk != null && (igniter == null || isAdjacentChunk(protectedChunks.get(chunk.getFactionName()), chunk))) {
+            String chunkKey = getChunkKey(block.getLevel().getName(), block.getChunkX(), block.getChunkZ());
+            ProtectedChunkData chunk = protectedChunks.get(chunkKey);
+            if (chunk != null) {
                 affectedChunks.add(chunk);
             }
         }
 
-        event.getBlockList().removeIf(block -> {
-            String chunkKey = getChunkKey(block.getLocation());
-            return affectedChunks.contains(getProtectedChunk(chunkKey));
-        });
-
-        for (ProtectedChunkData chunk : affectedChunks) {
-            int health = chunk.getShieldHealth();
-            health--;
-
-            if (health <= 0) {
-                protectedChunks.get(chunk.getFactionName()).remove(chunk);
-
-                String factionName = chunk.getFactionName();
-                if (factionName != null) {
-                    List<String> factionMembers = db.getFactionPlayers(factionName);
-                    for (String memberName : factionMembers) {
-                        Player member = plugin.getServer().getPlayer(memberName);
-                        if (member != null) {
-                            sendBigTextMessage(member, "§cA faction shield has been destroyed!");
-                        }
-                    }
-                }
-            } else {
-                chunk.setShieldHealth(health);
-                if (igniter != null) {
-                    igniter.sendMessage("§cFaction shield health: " + health);
-                }
-                showShieldDamageEffect(chunk, event.getPosition());
-            }
+        if (!affectedChunks.isEmpty()) {
+            event.setCancelled(true);
+            return;
         }
-        saveProtectedChunks();
     }
 
-    private boolean isAdjacentChunk(List<ProtectedChunkData> claimedChunks, ProtectedChunkData chunk) {
-        for (ProtectedChunkData claimedChunk : claimedChunks) {
-            if (Math.abs(claimedChunk.getChunkX() - chunk.getChunkX()) <= 1 && Math.abs(claimedChunk.getChunkZ() - chunk.getChunkZ()) <= 1) {
-                return true;
-            }
+    private boolean isNeighboringChunk(String factionName, String worldName, int chunkX, int chunkZ) {
+        return protectedChunks.values().stream()
+                .filter(chunk -> chunk.getFactionName().equals(factionName))
+                .anyMatch(chunk -> Math.abs(chunk.getChunkX() - chunkX) <= 1 && Math.abs(chunk.getChunkZ() - chunkZ) <= 1 && chunk.getWorldName().equals(worldName));
+    }
+
+    private String getChunkKey(String worldName, int chunkX, int chunkZ) {
+        return worldName + ":" + chunkX + ":" + chunkZ;
+    }
+
+    private String getChunkKey(Position pos) {
+        if (pos == null || pos.level == null) {
+            return null;
         }
-        return false;
+        int chunkX = pos.getChunkX();
+        int chunkZ = pos.getChunkZ();
+        return pos.level.getName() + ":" + chunkX + ":" + chunkZ;
     }
 
-    private void sendBigTextMessage(Player player, String message) {
-        TextPacket packet = new TextPacket();
-        packet.type = TextPacket.TYPE_TRANSLATION;
-        packet.message = "title";
-        packet.parameters = new String[]{message};
-        packet.isLocalized = false;
-        player.dataPacket(packet);
-    }
-
-    private void showShieldDamageEffect(ProtectedChunkData chunk, Vector3 explosionPosition) {
-        Level level = chunk.getLevel();
-        int chunkX = chunk.getChunkX() << 4;
-        int chunkZ = chunk.getChunkZ() << 4;
-
-        // Show the shield walls for 1 minute
-        new NukkitRunnable() {
-            int counter = 0;
-
-            @Override
-            public void run() {
-                if (counter >= 60) {
-                    this.cancel();
-                    return;
-                }
-
-                for (int x = chunkX; x < chunkX + 16; x++) {
-                    for (int z = chunkZ; z < chunkZ + 16; z++) {
-                        level.addParticle(new DustParticle(new Vector3(x, level.getHighestBlockAt(x, z), z), 0, 0, 255));
-                    }
-                }
-
-                counter++;
-            }
-        }.runTaskTimer(plugin, 0, 20);
-
-        // Show the explosion area in red for 3 seconds
-        new NukkitRunnable() {
-            @Override
-            public void run() {
-                for (int x = chunkX; x < chunkX + 16; x++) {
-                    for (int z = chunkZ; z < chunkZ + 16; z++) {
-                        if (explosionPosition.distance(new Vector3(x, level.getHighestBlockAt(x, z), z)) <= 4) {
-                            level.addParticle(new DustParticle(new Vector3(x, level.getHighestBlockAt(x, z), z), 255, 0, 0));
-                        }
-                    }
-                }
-            }
-        }.runTaskLater(plugin, 0);
-
-        new NukkitRunnable() {
-            @Override
-            public void run() {
-                for (int x = chunkX; x < chunkX + 16; x++) {
-                    for (int z = chunkZ; z < chunkZ + 16; z++) {
-                        if (explosionPosition.distance(new Vector3(x, level.getHighestBlockAt(x, z), z)) <= 4) {
-                            level.addParticle(new DustParticle(new Vector3(x, level.getHighestBlockAt(x, z), z), 0, 0, 255));
-                        }
-                    }
-                }
-            }
-        }.runTaskLater(plugin, 60);
-    }
-
-    public void handlePlayerMoveEvent(PlayerMoveEvent event) {
-        Player player = event.getPlayer();
-        String chunkKey = getChunkKey(player.getPosition());
-        ProtectedChunkData chunk = getProtectedChunk(chunkKey);
-        String playerFaction = db.getPlayerFaction(player.getUniqueId().toString());
-
-        if (chunk != null && (playerFaction == null || !playerFaction.equals(chunk.getFactionName()))) {
-            if (!getAllyPermission(player, "enter_chunk")) {
-                player.sendMessage("§cYou cannot enter this chunk. It is protected by a faction shield.");
-                event.setCancelled(true);
-            }
-        }
+    private String getChunkKey(PlayerMoveEvent event) {
+        return getChunkKey(event.getTo());
     }
 
     public boolean handleShieldCommand(Player player) {
@@ -363,10 +259,9 @@ public class FactionShieldManager implements Listener {
     }
 
     public void handleShieldGuiResponse(Player player, FormResponseSimple response) {
-        if (response == null || processedResponses.contains(response.hashCode())) {
+        if (response == null) {
             return;
         }
-        processedResponses.add(response.hashCode());
         String buttonText = response.getClickedButton().getText();
 
         switch (buttonText) {
@@ -388,6 +283,23 @@ public class FactionShieldManager implements Listener {
         }
     }
 
+    private void viewClaims(Player player) {
+        PlayerData playerData = plugin.getPlayerDataManager().getPlayerData(player);
+        String factionName = playerData.getFaction();
+        List<ProtectedChunkData> claims = new ArrayList<>(protectedChunks.values());
+        claims.removeIf(chunk -> !chunk.getFactionName().equals(factionName));
+
+        if (claims.isEmpty()) {
+            player.sendMessage("§cYour faction has no claimed chunks.");
+            return;
+        }
+
+        player.sendMessage("§aYour faction's claimed chunks:");
+        for (ProtectedChunkData chunk : claims) {
+            player.sendMessage("§7- Chunk at (" + chunk.getChunkX() + ", " + chunk.getChunkZ() + ")");
+        }
+    }
+
     private void showPermissionGui(Player player) {
         FormWindowSimple permissionGui = new FormWindowSimple("Manage Permissions", "Select a group:");
 
@@ -399,10 +311,9 @@ public class FactionShieldManager implements Listener {
     }
 
     public void handlePermissionGuiResponse(Player player, FormResponseSimple response) {
-        if (response == null || processedResponses.contains(response.hashCode())) {
+        if (response == null) {
             return;
         }
-        processedResponses.add(response.hashCode());
         String buttonText = response.getClickedButton().getText();
 
         switch (buttonText) {
@@ -459,10 +370,9 @@ public class FactionShieldManager implements Listener {
     }
 
     public void handleMemberPermissionGuiResponse(Player player, FormResponseCustom response) {
-        if (response == null || processedResponses.contains(response.hashCode())) {
+        if (response == null) {
             return;
         }
-        processedResponses.add(response.hashCode());
         String factionName = db.getPlayerFaction(player.getUniqueId().toString());
         Map<String, Boolean> permissions = memberPermissions.computeIfAbsent(factionName, k -> new HashMap<>());
 
@@ -472,13 +382,13 @@ public class FactionShieldManager implements Listener {
         permissions.put("open_doors", response.getToggleResponse(3));
 
         player.sendMessage("§aMember permissions updated successfully!");
+        savePermissions();
     }
 
     public void handleAllyPermissionGuiResponse(Player player, FormResponseCustom response) {
-        if (response == null || processedResponses.contains(response.hashCode())) {
+        if (response == null) {
             return;
         }
-        processedResponses.add(response.hashCode());
         String factionName = db.getPlayerFaction(player.getUniqueId().toString());
         Map<String, Boolean> permissions = allyPermissions.computeIfAbsent(factionName, k -> new HashMap<>());
 
@@ -489,27 +399,6 @@ public class FactionShieldManager implements Listener {
         permissions.put("enter_chunk", response.getToggleResponse(4));
 
         player.sendMessage("§aAlly permissions updated successfully!");
-    }
-
-    public void handleExplosionEvent(EntityExplodeEvent event) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'handleExplosionEvent'");
-    }
-
-    private String getChunkKey(Position pos) {
-        if (pos == null || pos.level == null) {
-            return null;
-        }
-        int chunkX = pos.getChunkX();
-        int chunkZ = pos.getChunkZ();
-        return pos.level.getName() + ":" + chunkX + ":" + chunkZ;
-    }
-
-    private ProtectedChunkData getProtectedChunk(String chunkKey) {
-        List<ProtectedChunkData> chunks = protectedChunks.get(chunkKey);
-        if (chunks != null && !chunks.isEmpty()) {
-            return chunks.get(0); // Assuming only one chunk per key
-        }
-        return null;
+        savePermissions();
     }
 }

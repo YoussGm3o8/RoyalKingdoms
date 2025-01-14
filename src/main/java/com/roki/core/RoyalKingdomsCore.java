@@ -432,8 +432,7 @@ public class RoyalKingdomsCore extends PluginBase implements Listener {
         }
     
         public Faction getPlayerFaction(Player player) {
-            PlayerData playerData = new PlayerData(player, dbManager);
-            String factionName = playerData.getFaction();
+            String factionName = dbManager.getPlayerFaction(player.getUniqueId().toString());
             if (factionName == null) {
                 return null;
             }
