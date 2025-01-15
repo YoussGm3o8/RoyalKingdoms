@@ -99,7 +99,8 @@ public class FactionShieldManager implements Listener {
             return;
         }
 
-        if (protectedChunks.values().stream().filter(chunk -> chunk.getFactionName().equals(factionName)).count() >= 12) {
+        long factionClaims = protectedChunks.values().stream().filter(chunk -> chunk.getFactionName().equals(factionName)).count();
+        if (factionClaims >= 12) {
             player.sendMessage("§cYour faction has reached the maximum number of claims (12).");
             return;
         }
@@ -109,7 +110,7 @@ public class FactionShieldManager implements Listener {
             return;
         }
 
-        if (!isNeighboringChunk(factionName, player.getLevel().getName(), player.getChunkX(), player.getChunkZ())) {
+        if (factionClaims > 0 && !isNeighboringChunk(factionName, player.getLevel().getName(), player.getChunkX(), player.getChunkZ())) {
             player.sendMessage("§cYou can only claim neighboring chunks.");
             return;
         }
@@ -155,25 +156,49 @@ public class FactionShieldManager implements Listener {
     @EventHandler
     public void onPlayerTeleport(PlayerTeleportEvent event) {
         Player player = event.getPlayer();
-        String chunkKey = getChunkKey(event.getTo());
-        ProtectedChunkData chunk = protectedChunks.get(chunkKey);
-        String factionName = db.getPlayerFaction(player.getUniqueId().toString());
+        if (player == null || event.getTo() == null) {
+            return;
+        }
 
-        if (chunk != null && (factionName == null || !factionName.equals(chunk.getFactionName()))) {
-            event.setCancelled(true);
-            player.sendTitle("§cFaction Shield", "§4Cannot Teleport Here!", 10, 70, 20);
+        String chunkKey = getChunkKey(event.getTo());
+        if (chunkKey == null) {
+            return;
+        }
+
+        ProtectedChunkData chunk = protectedChunks.get(chunkKey);
+        if (chunk == null) {
+            return;
+        }
+
+        String factionName = db.getPlayerFaction(player.getUniqueId().toString());
+        if (factionName == null || !factionName.equals(chunk.getFactionName())) {
+            if (factionName == null || !getAllyPermission(player, "enter_chunk")) {
+                player.sendMessage("§cYou cannot teleport to this chunk. It is protected by a faction shield.");
+                event.setCancelled(true);
+            }
         }
     }
 
     @EventHandler
     public void onPlayerMove(PlayerMoveEvent event) {
         Player player = event.getPlayer();
-        String chunkKey = getChunkKey(event.getTo());
-        ProtectedChunkData chunk = protectedChunks.get(chunkKey);
-        String factionName = db.getPlayerFaction(player.getUniqueId().toString());
+        if (player == null || event.getTo() == null) {
+            return;
+        }
 
-        if (chunk != null && (factionName == null || !factionName.equals(chunk.getFactionName()))) {
-            if (!getAllyPermission(player, "enter_chunk")) {
+        String chunkKey = getChunkKey(event.getTo());
+        if (chunkKey == null) {
+            return;
+        }
+
+        ProtectedChunkData chunk = protectedChunks.get(chunkKey);
+        if (chunk == null) {
+            return;
+        }
+
+        String factionName = db.getPlayerFaction(player.getUniqueId().toString());
+        if (factionName == null || !factionName.equals(chunk.getFactionName())) {
+            if (factionName == null || !getAllyPermission(player, "enter_chunk")) {
                 player.sendMessage("§cYou cannot enter this chunk. It is protected by a faction shield.");
                 event.setCancelled(true);
             }
@@ -208,8 +233,8 @@ public class FactionShieldManager implements Listener {
 
     private boolean isNeighboringChunk(String factionName, String worldName, int chunkX, int chunkZ) {
         return protectedChunks.values().stream()
-                .filter(chunk -> chunk.getFactionName().equals(factionName))
-                .anyMatch(chunk -> Math.abs(chunk.getChunkX() - chunkX) <= 1 && Math.abs(chunk.getChunkZ() - chunkZ) <= 1 && chunk.getWorldName().equals(worldName));
+                .filter(chunk -> chunk.getFactionName().equals(factionName) && chunk.getWorldName().equals(worldName))
+                .anyMatch(chunk -> Math.abs(chunk.getChunkX() - chunkX) <= 1 && Math.abs(chunk.getChunkZ() - chunkZ) <= 1);
     }
 
     private String getChunkKey(String worldName, int chunkX, int chunkZ) {
@@ -232,6 +257,7 @@ public class FactionShieldManager implements Listener {
     public boolean handleShieldCommand(Player player) {
         PlayerData playerData = plugin.getPlayerDataManager().getPlayerData(player);
         String factionName = playerData.getFaction();
+        System.out.println("FactionName: " + factionName);
 
         if (factionName == null) {
             player.sendMessage("§cYou are not in a faction.");
@@ -259,9 +285,10 @@ public class FactionShieldManager implements Listener {
     }
 
     public void handleShieldGuiResponse(Player player, FormResponseSimple response) {
-        if (response == null) {
+        if (response == null || processedResponses.contains(response.hashCode())) {
             return;
         }
+        processedResponses.add(response.hashCode());
         String buttonText = response.getClickedButton().getText();
 
         switch (buttonText) {
@@ -276,6 +303,29 @@ public class FactionShieldManager implements Listener {
                 break;
             case "Back":
                 plugin.getCommandController().handleFactionGuiCommand(player);
+                break;
+            default:
+                player.sendMessage("§cInvalid action.");
+                break;
+        }
+    }
+
+    public void handlePermissionGuiResponse(Player player, FormResponseSimple response) {
+        if (response == null || processedResponses.contains(response.hashCode())) {
+            return;
+        }
+        processedResponses.add(response.hashCode());
+        String buttonText = response.getClickedButton().getText();
+
+        switch (buttonText) {
+            case "Members":
+                showMemberPermissionGui(player);
+                break;
+            case "Allies":
+                showAllyPermissionGui(player);
+                break;
+            case "Back":
+                showShieldGui(player);
                 break;
             default:
                 player.sendMessage("§cInvalid action.");
@@ -309,29 +359,7 @@ public class FactionShieldManager implements Listener {
 
         player.showFormWindow(permissionGui);
     }
-
-    public void handlePermissionGuiResponse(Player player, FormResponseSimple response) {
-        if (response == null) {
-            return;
-        }
-        String buttonText = response.getClickedButton().getText();
-
-        switch (buttonText) {
-            case "Members":
-                showMemberPermissionGui(player);
-                break;
-            case "Allies":
-                showAllyPermissionGui(player);
-                break;
-            case "Back":
-                showShieldGui(player);
-                break;
-            default:
-                player.sendMessage("§cInvalid action.");
-                break;
-        }
-    }
-
+    
     private void showMemberPermissionGui(Player player) {
         FormWindowCustom memberPermissionGui = new FormWindowCustom("Member Permissions");
 
@@ -366,6 +394,9 @@ public class FactionShieldManager implements Listener {
 
     private boolean getAllyPermission(Player player, String permission) {
         String factionName = db.getPlayerFaction(player.getUniqueId().toString());
+        if (factionName == null) {
+            return false;
+        }
         return allyPermissions.getOrDefault(factionName, new HashMap<>()).getOrDefault(permission, false);
     }
 

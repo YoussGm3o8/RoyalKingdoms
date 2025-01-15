@@ -68,7 +68,11 @@ public class FactionEventListener implements Listener {
 
     @EventHandler
     public void onPlayerMove(PlayerMoveEvent event) {
-        plugin.getFactionShieldManager().onPlayerMove(event);
+        try {
+            plugin.getFactionShieldManager().onPlayerMove(event);
+        } catch (Exception e) {
+            plugin.getLogger().error("Error handling PlayerMoveEvent", e);
+        }
     }
 
     @EventHandler

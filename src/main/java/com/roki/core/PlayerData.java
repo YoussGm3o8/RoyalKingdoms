@@ -1,93 +1,80 @@
 package com.roki.core;
 
-import cn.nukkit.Player;
 import cn.nukkit.level.Location;
-import com.roki.core.database.DatabaseManager;
-import com.roki.core.database.PlayerDataModel;
 import java.time.Instant;
 
 public class PlayerData {
-    private final Player player;
-    private final DatabaseManager dbManager;
-
+    private final String uuid;
+    private final String name;
     private String faction;
     private String rank;
     private Location home;
     private Instant lastLogin;
-    private long onlineTime; // in seconds
+    private long onlineTime;
 
-    public PlayerData(Player player, DatabaseManager dbManager) {
-        this.player = player;
-        this.dbManager = dbManager;
-        loadPlayerData();
+    public PlayerData(String uuid, String name, String faction, String rank, Location home, Instant lastLogin, long onlineTime) {
+        this.uuid = uuid;
+        this.name = name;
+        this.faction = faction;
+        this.rank = rank;
+        this.home = home;
+        this.lastLogin = lastLogin;
+        this.onlineTime = onlineTime;
     }
 
-    public void setFaction(String faction) {
-        this.faction = faction;
-        savePlayerData();
+    public String getUuid() {
+        return uuid;
+    }
+
+    public String getName() {
+        return name;
     }
 
     public String getFaction() {
         return faction;
     }
 
-    public void setRank(String rank) {
-        this.rank = rank;
-        savePlayerData();
+    public void setFaction(String faction) {
+        this.faction = faction;
     }
 
     public String getRank() {
         return rank;
     }
 
-    public boolean isLeader() {
-        return "Leader".equals(rank);
-    }
-
-    public boolean isOfficer() {
-        return "Officer".equals(rank);
-    }
-
-    public void setHome(Location home) {
-        this.home = home;
-        savePlayerData();
+    public void setRank(String rank) {
+        this.rank = rank;
     }
 
     public Location getHome() {
         return home;
     }
 
-    public boolean hasHome() {
-        return home != null;
+    public void setHome(Location home) {
+        this.home = home;
     }
 
-    public void removeHome() {
-        this.home = null;
-        savePlayerData();
+    public Instant getLastLogin() {
+        return lastLogin;
     }
 
-    public void updateLastLogin() {
-        this.lastLogin = Instant.now();
-        savePlayerData();
+    public void setLastLogin(Instant lastLogin) {
+        this.lastLogin = lastLogin;
     }
 
-    public void addOnlineTime(long seconds) {
-        this.onlineTime += seconds;
-        savePlayerData();
+    public long getOnlineTime() {
+        return onlineTime;
     }
 
-    public void savePlayerData() {
-        dbManager.savePlayerData(player.getUniqueId().toString(), player.getName(), faction, rank, home, lastLogin, onlineTime);
+    public void setOnlineTime(long onlineTime) {
+        this.onlineTime = onlineTime;
     }
 
-    private void loadPlayerData() {
-        PlayerDataModel data = dbManager.loadPlayerData(player.getUniqueId().toString());
-        if (data != null) {
-            this.faction = data.getFaction();
-            this.rank = data.getRank();
-            this.home = data.getHome();
-            this.lastLogin = data.getLastLogin();
-            this.onlineTime = data.getOnlineTime();
-        }
+    public boolean isLeader() {
+        return "Leader".equalsIgnoreCase(rank);
+    }
+
+    public boolean isOfficer() {
+        return "Officer".equalsIgnoreCase(rank);
     }
 }

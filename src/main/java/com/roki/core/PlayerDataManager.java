@@ -1,41 +1,42 @@
 package com.roki.core;
 
-import java.util.concurrent.ConcurrentHashMap;
 import com.roki.core.database.DatabaseManager;
-import java.util.Map;
+import com.roki.core.database.PlayerDataModel;
 import cn.nukkit.Player;
 
 public class PlayerDataManager {
-    private final Map<String, PlayerData> cache = new ConcurrentHashMap<>();
-    private final DatabaseManager dbManager;
+    private final DatabaseManager db;
 
-    public PlayerDataManager(DatabaseManager dbManager) {
-        this.dbManager = dbManager;
+    public PlayerDataManager(DatabaseManager db) {
+        this.db = db;
     }
 
     public PlayerData getPlayerData(Player player) {
-        if (!cache.containsKey(player.getName())) {
-            cache.put(player.getName(), new PlayerData(player, dbManager));
+        PlayerDataModel dataModel = db.loadPlayerData(player.getUniqueId().toString());
+        if (dataModel == null) {
+            return new PlayerData(player.getUniqueId().toString(), player.getName(), null, "Member", null, null, 0);
         }
-        return cache.get(player.getName());
+        return new PlayerData(
+            dataModel.getUuid(),
+            player.getName(),
+            dataModel.getFaction(),
+            dataModel.getRank(),
+            dataModel.getHome(),
+            dataModel.getLastLogin(),
+            dataModel.getOnlineTime()
+        );
     }
 
-    public void saveAll() {
-        for (PlayerData data : cache.values()) {
-            data.savePlayerData();
-        }
-    }
-
-    public void saveAndRemove(Player player) {
-        PlayerData data = cache.remove(player.getName());
-        if (data != null) {
-            data.savePlayerData();
-        }
-    }
-
-    public void clearCache() {
-        saveAll();
-        cache.clear();
+    public void savePlayerData(PlayerData playerData) {
+        db.savePlayerData(
+            playerData.getUuid(),
+            playerData.getName(),
+            playerData.getFaction(),
+            playerData.getRank(),
+            playerData.getHome(),
+            playerData.getLastLogin(),
+            playerData.getOnlineTime()
+        );
     }
 }
 

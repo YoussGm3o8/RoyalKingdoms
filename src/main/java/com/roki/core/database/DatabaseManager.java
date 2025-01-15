@@ -822,20 +822,98 @@ public class DatabaseManager {
     }
 
     public void saveMemberPermissions(Map<String, Map<String, Boolean>> permissions) {
-        // Implement the logic to save member permissions to the database
+        String deleteSQL = "DELETE FROM member_permissions";
+        String insertSQL = "INSERT INTO member_permissions (faction_name, permission, value) VALUES (?, ?, ?)";
+
+        try (Connection conn = connect();
+             Statement deleteStmt = conn.createStatement();
+             PreparedStatement insertStmt = conn.prepareStatement(insertSQL)) {
+
+            // Clear existing data
+            deleteStmt.executeUpdate(deleteSQL);
+
+            // Insert new data
+            for (Map.Entry<String, Map<String, Boolean>> factionEntry : permissions.entrySet()) {
+                String factionName = factionEntry.getKey();
+                for (Map.Entry<String, Boolean> permissionEntry : factionEntry.getValue().entrySet()) {
+                    insertStmt.setString(1, factionName);
+                    insertStmt.setString(2, permissionEntry.getKey());
+                    insertStmt.setBoolean(3, permissionEntry.getValue());
+                    insertStmt.addBatch();
+                }
+            }
+            insertStmt.executeBatch();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
     }
 
     public void saveAllyPermissions(Map<String, Map<String, Boolean>> permissions) {
-        // Implement the logic to save ally permissions to the database
+        String deleteSQL = "DELETE FROM ally_permissions";
+        String insertSQL = "INSERT INTO ally_permissions (faction_name, permission, value) VALUES (?, ?, ?)";
+
+        try (Connection conn = connect();
+             Statement deleteStmt = conn.createStatement();
+             PreparedStatement insertStmt = conn.prepareStatement(insertSQL)) {
+
+            // Clear existing data
+            deleteStmt.executeUpdate(deleteSQL);
+
+            // Insert new data
+            for (Map.Entry<String, Map<String, Boolean>> factionEntry : permissions.entrySet()) {
+                String factionName = factionEntry.getKey();
+                for (Map.Entry<String, Boolean> permissionEntry : factionEntry.getValue().entrySet()) {
+                    insertStmt.setString(1, factionName);
+                    insertStmt.setString(2, permissionEntry.getKey());
+                    insertStmt.setBoolean(3, permissionEntry.getValue());
+                    insertStmt.addBatch();
+                }
+            }
+            insertStmt.executeBatch();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
     }
 
     public Map<String, Map<String, Boolean>> loadMemberPermissions() {
-        // Implement the logic to load member permissions from the database
-        return new HashMap<>();
+        Map<String, Map<String, Boolean>> permissions = new HashMap<>();
+        String selectSQL = "SELECT faction_name, permission, value FROM member_permissions";
+
+        try (Connection conn = connect();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(selectSQL)) {
+
+            while (rs.next()) {
+                String factionName = rs.getString("faction_name");
+                String permission = rs.getString("permission");
+                boolean value = rs.getBoolean("value");
+
+                permissions.computeIfAbsent(factionName, k -> new HashMap<>()).put(permission, value);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return permissions;
     }
 
     public Map<String, Map<String, Boolean>> loadAllyPermissions() {
-        // Implement the logic to load ally permissions from the database
-        return new HashMap<>();
+        Map<String, Map<String, Boolean>> permissions = new HashMap<>();
+        String selectSQL = "SELECT faction_name, permission, value FROM ally_permissions";
+
+        try (Connection conn = connect();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(selectSQL)) {
+
+            while (rs.next()) {
+                String factionName = rs.getString("faction_name");
+                String permission = rs.getString("permission");
+                boolean value = rs.getBoolean("value");
+
+                permissions.computeIfAbsent(factionName, k -> new HashMap<>()).put(permission, value);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return permissions;
     }
 }
