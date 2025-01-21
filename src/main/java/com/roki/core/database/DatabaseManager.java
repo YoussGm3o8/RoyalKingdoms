@@ -125,6 +125,35 @@ public class DatabaseManager {
                 shield_health INTEGER NOT NULL,
                 PRIMARY KEY (world_name, chunk_x, chunk_z)
             )
+            """,
+            
+            // Member permissions table
+            """
+            CREATE TABLE IF NOT EXISTS member_permissions (
+                faction_name TEXT NOT NULL,
+                permission TEXT NOT NULL,
+                value BOOLEAN NOT NULL,
+                PRIMARY KEY (faction_name, permission)
+            )
+            """,
+            
+            // Ally permissions table
+            """
+            CREATE TABLE IF NOT EXISTS ally_permissions (
+                faction_name TEXT NOT NULL,
+                permission TEXT NOT NULL,
+                value BOOLEAN NOT NULL,
+                PRIMARY KEY (faction_name, permission)
+            )
+            """,
+            
+            // Shield reactor table
+            """
+            CREATE TABLE IF NOT EXISTS shield_reactor (
+                faction_name TEXT PRIMARY KEY,
+                health INTEGER NOT NULL DEFAULT 0,
+                last_damage_time BIGINT
+            )
             """
         };
 
@@ -915,5 +944,64 @@ public class DatabaseManager {
             e.printStackTrace();
         }
         return permissions;
+    }
+
+    public void saveShieldReactorData(Map<String, Integer> reactorHealth, Map<String, Long> lastDamageTime) {
+        String sql = """
+            INSERT OR REPLACE INTO shield_reactor (faction_name, health, last_damage_time)
+            VALUES (?, ?, ?)
+        """;
+
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
+            for (Map.Entry<String, Integer> entry : reactorHealth.entrySet()) {
+                String factionName = entry.getKey();
+                int health = entry.getValue();
+                Long damageTime = lastDamageTime.get(factionName);
+
+                pstmt.setString(1, factionName);
+                pstmt.setInt(2, health);
+                pstmt.setObject(3, damageTime);
+                pstmt.addBatch();
+            }
+            pstmt.executeBatch();
+        } catch (SQLException e) {
+            plugin.getLogger().error("Failed to save shield reactor data", e);
+        }
+    }
+
+    public Map<String, Integer> loadShieldReactorHealth() {
+        Map<String, Integer> reactorHealth = new HashMap<>();
+        String sql = "SELECT faction_name, health FROM shield_reactor";
+
+        try (Connection conn = connect();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            
+            while (rs.next()) {
+                reactorHealth.put(rs.getString("faction_name"), rs.getInt("health"));
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().error("Failed to load shield reactor health", e);
+        }
+        return reactorHealth;
+    }
+
+    public Map<String, Long> loadShieldReactorDamageTimes() {
+        Map<String, Long> lastDamageTime = new HashMap<>();
+        String sql = "SELECT faction_name, last_damage_time FROM shield_reactor WHERE last_damage_time IS NOT NULL";
+
+        try (Connection conn = connect();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            
+            while (rs.next()) {
+                lastDamageTime.put(rs.getString("faction_name"), rs.getLong("last_damage_time"));
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().error("Failed to load shield reactor damage times", e);
+        }
+        return lastDamageTime;
     }
 }

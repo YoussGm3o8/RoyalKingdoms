@@ -453,6 +453,11 @@ public class RoyalKingdomsCore extends PluginBase implements Listener {
                     handleFormClose(event.getPlayer(), window);
                     return;
                 }
+
+                // Add debugging info
+                getLogger().info("FormWindowSimple Title: " + window.getTitle());
+                getLogger().info("FormWindowSimple Response: " + response.getClickedButton().getText());
+
                 if (window.getTitle().equals("Faction Management")) {
                     commandController.handleGuiResponse(event.getPlayer(), response);
                 } else if (window.getTitle().equals("Faction Invites")) {
@@ -478,28 +483,36 @@ public class RoyalKingdomsCore extends PluginBase implements Listener {
                     commandController.handleDisbandFactionConfirmationResponse(event.getPlayer(), response);
                 } else if (window.getTitle().equals("Claim Land")) {
                     factionShieldManager.handleShieldGuiResponse(event.getPlayer(), response);
-            } else if (window.getTitle().equals("Manage Permissions")) {
-                factionShieldManager.handlePermissionGuiResponse(event.getPlayer(), response);
-            }
-        } else if (event.getWindow() instanceof FormWindowCustom) {
-            FormWindowCustom window = (FormWindowCustom) event.getWindow();
-            FormResponseCustom response = (FormResponseCustom) event.getResponse();
-            if (response == null) {
-                // Handle case where the player closed the form without making a selection
-                handleFormClose(event.getPlayer(), window);
-                return;
-            }
-            if (window.getTitle().equals("Create Faction")) {
-                commandController.handleCreateFactionFormResponse(event.getPlayer(), response);
-            } else if (window.getTitle().equals("Deposit Money")) {
-                commandController.handleDepositMoneyFormResponse(event.getPlayer(), response);
-            } else if (window.getTitle().equals("Member Permissions")) {
-                factionShieldManager.handleMemberPermissionGuiResponse(event.getPlayer(), response);
-            } else if (window.getTitle().equals("Ally Permissions")) {
-                factionShieldManager.handleAllyPermissionGuiResponse(event.getPlayer(), response);
+                } else if (window.getTitle().equals("Manage Permissions")) {
+                    factionShieldManager.handlePermissionGuiResponse(event.getPlayer(), response);
+                }
+            } else if (event.getWindow() instanceof FormWindowCustom) {
+                FormWindowCustom window = (FormWindowCustom) event.getWindow();
+                FormResponseCustom response = (FormResponseCustom) event.getResponse();
+                
+                // Add debugging info
+                getLogger().info("FormWindowCustom Title: " + window.getTitle());
+                getLogger().info("FormWindowCustom Response: " + (response != null ? response.toString() : "null"));
+
+                if (response == null) {
+                    // Handle case where the player closed the form without making a selection
+                    handleFormClose(event.getPlayer(), window);
+                    return;
+                }
+
+                if (window.getTitle().equals("Create Faction")) {
+                    commandController.handleCreateFactionFormResponse(event.getPlayer(), response);
+                } else if (window.getTitle().equals("Deposit Money")) {
+                    commandController.handleDepositMoneyFormResponse(event.getPlayer(), response);
+                } else if (window.getTitle().equals("Member Permissions")) {
+                    factionShieldManager.handleMemberPermissionGuiResponse(event.getPlayer(), response);
+                } else if (window.getTitle().equals("Ally Permissions")) {
+                    factionShieldManager.handleAllyPermissionGuiResponse(event.getPlayer(), response);
+                } else if (window.getTitle().equals("Shield Reactor")) {
+                    factionShieldManager.handleShieldReactorGuiResponse(event.getPlayer(), response);
+                }
             }
         }
-    }
 
     public void handleFormClose(Player player, FormWindowSimple window) {
         // Handle form close logic here, if needed
