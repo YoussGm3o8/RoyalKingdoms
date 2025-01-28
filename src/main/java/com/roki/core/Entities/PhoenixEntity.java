@@ -38,6 +38,7 @@ public class PhoenixEntity extends HorseBase implements CustomEntity {
 
     protected ArrayList<Entity> passengers = new ArrayList<>();
     protected float moveSpeed = DEFAULT_MOVE_SPEED;
+    private Player owner;
 
     public PhoenixEntity(FullChunk chunk, CompoundTag nbt) {
         super(chunk, nbt);
@@ -103,32 +104,37 @@ public class PhoenixEntity extends HorseBase implements CustomEntity {
 
     @Override
     public boolean mountEntity(Entity entity, byte mode) {
-        Objects.requireNonNull(entity, "The target of the mounting entity can't be null");
+        if (entity instanceof Player && entity.equals(owner)) {
+            Objects.requireNonNull(entity, "The target of the mounting entity can't be null");
 
-        if (entity.riding != null) {
-            dismountEntity(entity);
-            entity.resetFallDistance();
-            this.motionX = 0;
-            this.motionZ = 0;
-            this.stayTime = 20;
+            if (entity.riding != null) {
+                dismountEntity(entity);
+                entity.resetFallDistance();
+                this.motionX = 0;
+                this.motionZ = 0;
+                this.stayTime = 20;
+            } else {
+                if (entity instanceof Player && ((Player) entity).isSleeping()) {
+                    return false;
+                }
+
+                if (isPassenger(entity)) {
+                    return false;
+                }
+
+                broadcastLinkPacket(entity, SetEntityLinkPacket.TYPE_RIDE);
+
+                entity.riding = this;
+                entity.setDataFlag(DATA_FLAGS, DATA_FLAG_RIDING, true);
+                entity.setDataProperty(new Vector3fEntityData(DATA_RIDER_SEAT_POSITION, new Vector3f(-0.5f, 4f, -1f)));
+                passengers.add(entity);
+            }
+
+            return true;
         } else {
-            if (entity instanceof Player && ((Player) entity).isSleeping()) {
-                return false;
-            }
-
-            if (isPassenger(entity)) {
-                return false;
-            }
-
-            broadcastLinkPacket(entity, SetEntityLinkPacket.TYPE_RIDE);
-
-            entity.riding = this;
-            entity.setDataFlag(DATA_FLAGS, DATA_FLAG_RIDING, true);
-            entity.setDataProperty(new Vector3fEntityData(DATA_RIDER_SEAT_POSITION, new Vector3f(-0.5f, 4f, -1f)));
-            passengers.add(entity);
+            ((Player) entity).sendMessage("§cOnly the owner can ride this dragon.");
+            return false;
         }
-
-        return true;
     }
     
     @Override
@@ -181,6 +187,9 @@ public class PhoenixEntity extends HorseBase implements CustomEntity {
         }
         this.move(this.motionX, 0, this.motionZ);
         this.updateMovement();
+        if (this.passengers.isEmpty()) {
+            this.close();
+        }
         return super.onUpdate(currentTick);
      }
 
@@ -361,5 +370,9 @@ public class PhoenixEntity extends HorseBase implements CustomEntity {
     @Override
     public int getKillExperience() {
         return 0;
+    }
+
+    public void setOwner(Player owner) {
+        this.owner = owner;
     }
 }

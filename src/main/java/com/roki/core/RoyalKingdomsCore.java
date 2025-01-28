@@ -23,6 +23,7 @@ import cn.nukkit.entity.custom.EntityManager;
 import cn.nukkit.plugin.PluginBase;
 import cn.nukkit.scheduler.NukkitRunnable;
 import cn.nukkit.utils.Config;
+import me.onebone.economyapi.EconomyAPI;
 import cn.nukkit.event.Listener;
 import cn.nukkit.event.player.PlayerFormRespondedEvent;
 import cn.nukkit.event.player.PlayerMoveEvent;
@@ -196,8 +197,74 @@ public class RoyalKingdomsCore extends PluginBase implements Listener {
                     }
                 }
             });
+
+            getServer().getCommandMap().register("borders", new Command("borders", "Toggle chunk borders", "/borders") {
+                @Override
+                public boolean execute(CommandSender sender, String commandLabel, String[] args) {
+                    if (!(sender instanceof Player)) {
+                        sender.sendMessage("This command can only be used by players.");
+                        return true;
+                    }
+
+                    Player player = (Player) sender;
+                    return commandController.handleBordersCommand(player);
+                }
+            });
+
+            getServer().getCommandMap().register("summondragon", new Command("summondragon", "Summon or buy a dragon", "/summondragon [buy]") {
+                @Override
+                public boolean execute(CommandSender sender, String commandLabel, String[] args) {
+                    if (!(sender instanceof Player)) {
+                        sender.sendMessage("This command can only be used by players.");
+                        return true;
+                    }
+
+                    Player player = (Player) sender;
+                    if (args.length > 0 && args[0].equalsIgnoreCase("buy")) {
+                        return handleBuyDragonCommand(player);
+                    } else {
+                        return handleSummonDragonCommand(player);
+                    }
+                }
+            });
     
             this.getServer().getPluginManager().registerEvents(this, this);
+        }
+
+        private boolean handleBuyDragonCommand(Player player) {
+            String playerUUID = player.getUniqueId().toString();
+            if (dbManager.playerHasDragon(playerUUID)) {
+                player.sendMessage("§cYou already own a dragon.");
+                return true;
+            }
+
+            double dragonCost = 64000;
+            double playerBalance = EconomyAPI.getInstance().myMoney(player);
+            if (playerBalance < dragonCost) {
+                player.sendMessage("§cYou do not have enough money to buy a dragon. It costs $64,000.");
+                return true;
+            }
+
+            EconomyAPI.getInstance().reduceMoney(player, dragonCost);
+            dbManager.setPlayerHasDragon(playerUUID, true);
+            player.sendMessage("§aYou have successfully bought a dragon! Use /summondragon to summon it.");
+            return true;
+        }
+
+        private boolean handleSummonDragonCommand(Player player) {
+            String playerUUID = player.getUniqueId().toString();
+            if (!dbManager.playerHasDragon(playerUUID)) {
+                player.sendMessage("§cYou do not own a dragon. Use /summondragon buy to buy one for $64,000.");
+                return true;
+            }
+
+            // Summon the dragon (PhoenixEntity)
+            PhoenixEntity dragon = new PhoenixEntity(player.getLevel().getChunk(player.getChunkX(), player.getChunkZ()), PhoenixEntity.getDefaultNBT(player));
+            dragon.setOwner(player);
+            dragon.spawnToAll();
+
+            player.sendMessage("§aYour dragon has been summoned!");
+            return true;
         }
     
         public ScoreboardManager getScoreboardManager() {
@@ -485,6 +552,10 @@ public class RoyalKingdomsCore extends PluginBase implements Listener {
                     factionShieldManager.handleShieldGuiResponse(event.getPlayer(), response);
                 } else if (window.getTitle().equals("Manage Permissions")) {
                     factionShieldManager.handlePermissionGuiResponse(event.getPlayer(), response);
+                } else if (window.getTitle().equals("Your Claims")) {
+                    factionShieldManager.handleClaimsGuiResponse(event.getPlayer(), response);
+                } else if (window.getTitle().equals("Unclaim Chunk")) {
+                    factionShieldManager.handleUnclaimConfirmationResponse(event.getPlayer(), response);
                 }
             } else if (event.getWindow() instanceof FormWindowCustom) {
                 FormWindowCustom window = (FormWindowCustom) event.getWindow();

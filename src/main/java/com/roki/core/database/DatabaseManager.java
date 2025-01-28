@@ -165,6 +165,17 @@ public class DatabaseManager {
         } catch (SQLException e) {
             plugin.getLogger().error("Failed to initialize database tables", e);
         }
+
+        // Add a column to track dragon ownership
+        String addDragonColumn = "ALTER TABLE players ADD COLUMN has_dragon BOOLEAN DEFAULT FALSE";
+        try (Connection conn = connect();
+             Statement stmt = conn.createStatement()) {
+            stmt.executeUpdate(addDragonColumn);
+        } catch (SQLException e) {
+            if (!e.getMessage().contains("duplicate column name")) {
+                plugin.getLogger().error("Failed to add has_dragon column to players table", e);
+            }
+        }
     }
 
     public void executeUpdate(String sql, Object... params) {
@@ -873,8 +884,29 @@ public class DatabaseManager {
             }
             insertStmt.executeBatch();
         } catch (SQLException e) {
-            e.printStackTrace();
+            plugin.getLogger().error("Failed to save member permissions", e);
         }
+    }
+
+    public Map<String, Map<String, Boolean>> loadMemberPermissions() {
+        Map<String, Map<String, Boolean>> permissions = new HashMap<>();
+        String selectSQL = "SELECT faction_name, permission, value FROM member_permissions";
+
+        try (Connection conn = connect();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(selectSQL)) {
+
+            while (rs.next()) {
+                String factionName = rs.getString("faction_name");
+                String permission = rs.getString("permission");
+                boolean value = rs.getBoolean("value");
+
+                permissions.computeIfAbsent(factionName, k -> new HashMap<>()).put(permission, value);
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().error("Failed to load member permissions", e);
+        }
+        return permissions;
     }
 
     public void saveAllyPermissions(Map<String, Map<String, Boolean>> permissions) {
@@ -902,27 +934,6 @@ public class DatabaseManager {
         } catch (SQLException e) {
             e.printStackTrace();
         }
-    }
-
-    public Map<String, Map<String, Boolean>> loadMemberPermissions() {
-        Map<String, Map<String, Boolean>> permissions = new HashMap<>();
-        String selectSQL = "SELECT faction_name, permission, value FROM member_permissions";
-
-        try (Connection conn = connect();
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery(selectSQL)) {
-
-            while (rs.next()) {
-                String factionName = rs.getString("faction_name");
-                String permission = rs.getString("permission");
-                boolean value = rs.getBoolean("value");
-
-                permissions.computeIfAbsent(factionName, k -> new HashMap<>()).put(permission, value);
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return permissions;
     }
 
     public Map<String, Map<String, Boolean>> loadAllyPermissions() {
@@ -1003,5 +1014,32 @@ public class DatabaseManager {
             plugin.getLogger().error("Failed to load shield reactor damage times", e);
         }
         return lastDamageTime;
+    }
+
+    public boolean playerHasDragon(String uuid) {
+        String sql = "SELECT has_dragon FROM players WHERE uuid = ?";
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, uuid);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                return rs.getBoolean("has_dragon");
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().error("Failed to check if player has dragon", e);
+        }
+        return false;
+    }
+
+    public void setPlayerHasDragon(String uuid, boolean hasDragon) {
+        String sql = "UPDATE players SET has_dragon = ? WHERE uuid = ?";
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setBoolean(1, hasDragon);
+            pstmt.setString(2, uuid);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            plugin.getLogger().error("Failed to set player dragon ownership", e);
+        }
     }
 }

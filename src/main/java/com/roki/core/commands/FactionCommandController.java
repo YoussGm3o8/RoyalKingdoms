@@ -65,6 +65,7 @@ public class FactionCommandController implements Listener {
     private final Set<Integer> processedResponses = new HashSet<>();
     private static final int CLAIM_COST = 16000;
     private static final int MAX_CHESTS = 2;
+    private final Map<Player, Boolean> chunkBordersEnabled = new HashMap<>();
 
     public enum ChatMode {
         ALL, FACTION, ALLY
@@ -804,15 +805,15 @@ public class FactionCommandController implements Listener {
             gui.addButton(new ElementButton("Join Faction"));
             gui.addButton(new ElementButton("Create Faction"));
         } else {
-            gui.addButton(new ElementButton("Leave Faction"));
-            gui.addButton(new ElementButton("Faction Info"));
-            gui.addButton(new ElementButton("Top Money"));
-            gui.addButton(new ElementButton("Deposit Money"));
-            gui.addButton(new ElementButton("Top Kills"));
-            gui.addButton(new ElementButton("Faction Home"));
             if (isLeader) {
                 gui.addButton(new ElementButton("Leader Tools"));
             }
+            gui.addButton(new ElementButton("Faction Home"));
+            gui.addButton(new ElementButton("Deposit Money"));
+            gui.addButton(new ElementButton("Faction Info"));
+            gui.addButton(new ElementButton("Top Money"));
+            gui.addButton(new ElementButton("Top Kills"));
+            gui.addButton(new ElementButton("Leave Faction"));
         }
         player.showFormWindow(gui);
         return true;
@@ -940,6 +941,7 @@ public class FactionCommandController implements Listener {
         leaderGui.addButton(new ElementButton("Invite Player"));
         leaderGui.addButton(new ElementButton("Promote Member"));
         leaderGui.addButton(new ElementButton("Demote Member"));
+        leaderGui.addButton(new ElementButton("Faction Shield"));
         leaderGui.addButton(new ElementButton("Manage Alliances"));
         leaderGui.addButton(new ElementButton("Set Faction Home"));
         leaderGui.addButton(new ElementButton("Disband Faction"));
@@ -964,6 +966,9 @@ public class FactionCommandController implements Listener {
                 break;
             case "Demote Member":
                 showFactionMembers(player, "demote");
+                break;
+            case "Faction Shield":
+                plugin.getFactionShieldManager().showShieldGui(player);
                 break;
             case "Manage Alliances":
                 showAllianceManagement(player);
@@ -1455,5 +1460,52 @@ public class FactionCommandController implements Listener {
         for (ProtectedChunkData chunk : claims) {
             player.sendMessage("§7- Chunk at (" + chunk.getChunkX() + ", " + chunk.getChunkZ() + ")");
         }
+    }
+
+    public boolean handleBordersCommand(Player player) {
+        boolean isEnabled = chunkBordersEnabled.getOrDefault(player, false);
+
+        if (isEnabled) {
+            chunkBordersEnabled.put(player, false);
+            player.sendMessage("§cChunk borders disabled.");
+        } else {
+            chunkBordersEnabled.put(player, true);
+            player.sendMessage("§aChunk borders enabled.");
+            showChunkBorders(player);
+        }
+
+        return true;
+    }
+
+    private void showChunkBorders(Player player) {
+        if (!chunkBordersEnabled.getOrDefault(player, false)) {
+            return;
+        }
+
+        int chunkX = player.getChunkX();
+        int chunkZ = player.getChunkZ();
+        Level level = player.getLevel();
+
+        for (int x = 0; x <= 16; x++) {
+            for (int z = 0; z <= 16; z++) {
+                if (x == 0 || x == 16 || z == 0 || z == 16) {
+                    for (int y = 0; y < 256; y += 5) {
+                        Vector3 particlePos = new Vector3(chunkX * 16 + x, y, chunkZ * 16 + z);
+                        DustParticle particle = new DustParticle(particlePos, 255, 255, 255); // White particles
+                        level.addParticle(particle);
+                    }
+                }
+            }
+        }
+
+        // Schedule the next update
+        new NukkitRunnable() {
+            @Override
+            public void run() {
+                if (chunkBordersEnabled.getOrDefault(player, false)) {
+                    showChunkBorders(player);
+                }
+            }
+        }.runTaskLater(plugin, 20); // Update every second
     }
 }
