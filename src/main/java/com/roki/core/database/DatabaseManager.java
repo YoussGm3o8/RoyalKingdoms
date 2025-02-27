@@ -37,124 +37,104 @@ public class DatabaseManager {
         // Create tables if they don't exist
         String[] tables = {
             // Players table
-            """
-            CREATE TABLE IF NOT EXISTS players (
-                uuid TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                faction_id INTEGER,
-                rank TEXT NOT NULL DEFAULT 'Member',
-                last_login TIMESTAMP,
-                online_time INTEGER DEFAULT 0,
-                FOREIGN KEY (faction_id) REFERENCES factions(id)
-            )
-            """,
-            
+            "CREATE TABLE IF NOT EXISTS players (\n" +
+                "    uuid TEXT PRIMARY KEY,\n" +
+                "    name TEXT NOT NULL,\n" +
+                "    faction_id INTEGER,\n" +
+                "    rank TEXT NOT NULL DEFAULT 'Member',\n" +
+                "    last_login TIMESTAMP,\n" +
+                "    online_time INTEGER DEFAULT 0,\n" +
+                "    FOREIGN KEY (faction_id) REFERENCES factions(id)\n" +
+                ")",
+
             // Factions table
-            """
-            CREATE TABLE IF NOT EXISTS factions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL UNIQUE,
-                leader TEXT NOT NULL,
-                vault_balance REAL DEFAULT 0,
-                kills INTEGER DEFAULT 0
-            )
-            """,
-            
+            "CREATE TABLE IF NOT EXISTS factions (\n" +
+                "    id INTEGER PRIMARY KEY AUTOINCREMENT,\n" +
+                "    name TEXT NOT NULL UNIQUE,\n" +
+                "    leader TEXT NOT NULL,\n" +
+                "    vault_balance REAL DEFAULT 0,\n" +
+                "    kills INTEGER DEFAULT 0\n" +
+                ")",
+
             // Warps table
-            """
-            CREATE TABLE IF NOT EXISTS warps (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL UNIQUE,
-                world TEXT NOT NULL,
-                x DOUBLE NOT NULL,
-                y DOUBLE NOT NULL,
-                z DOUBLE NOT NULL,
-                yaw FLOAT NOT NULL,
-                pitch FLOAT NOT NULL
-            )
-            """,
-            
+            "CREATE TABLE IF NOT EXISTS warps (\n" +
+                "    id INTEGER PRIMARY KEY AUTOINCREMENT,\n" +
+                "    name TEXT NOT NULL UNIQUE,\n" +
+                "    world TEXT NOT NULL,\n" +
+                "    x DOUBLE NOT NULL,\n" +
+                "    y DOUBLE NOT NULL,\n" +
+                "    z DOUBLE NOT NULL,\n" +
+                "    yaw FLOAT NOT NULL,\n" +
+                "    pitch FLOAT NOT NULL\n" +
+                ")",
+
             // Homes table
-            """
-            CREATE TABLE IF NOT EXISTS homes (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                player_uuid TEXT NOT NULL,
-                world TEXT NOT NULL,
-                x DOUBLE NOT NULL,
-                y DOUBLE NOT NULL,
-                z DOUBLE NOT NULL,
-                yaw FLOAT NOT NULL,
-                pitch FLOAT NOT NULL,
-                FOREIGN KEY (player_uuid) REFERENCES players(uuid),
-                UNIQUE(player_uuid)
-            )
-            """,
-            
+            "CREATE TABLE IF NOT EXISTS homes (\n" +
+                "    id INTEGER PRIMARY KEY AUTOINCREMENT,\n" +
+                "    player_uuid TEXT NOT NULL,\n" +
+                "    world TEXT NOT NULL,\n" +
+                "    x DOUBLE NOT NULL,\n" +
+                "    y DOUBLE NOT NULL,\n" +
+                "    z DOUBLE NOT NULL,\n" +
+                "    yaw FLOAT NOT NULL,\n" +
+                "    pitch FLOAT NOT NULL,\n" +
+                "    FOREIGN KEY (player_uuid) REFERENCES players(uuid),\n" +
+                "    UNIQUE(player_uuid)\n" +
+                ")",
+
             // Portals table
-            """
-            CREATE TABLE IF NOT EXISTS portals (
-                name TEXT PRIMARY KEY,
-                world TEXT NOT NULL,
-                x1 DOUBLE NOT NULL,
-                y1 DOUBLE NOT NULL,
-                z1 DOUBLE NOT NULL,
-                x2 DOUBLE NOT NULL,
-                y2 DOUBLE NOT NULL,
-                z2 DOUBLE NOT NULL,
-                color TEXT NOT NULL,
-                command TEXT
-            )
-            """,
-            
+            "CREATE TABLE IF NOT EXISTS portals (\n" +
+                "    name TEXT PRIMARY KEY,\n" +
+                "    world TEXT NOT NULL,\n" +
+                "    x1 DOUBLE NOT NULL,\n" +
+                "    y1 DOUBLE NOT NULL,\n" +
+                "    z1 DOUBLE NOT NULL,\n" +
+                "    x2 DOUBLE NOT NULL,\n" +
+                "    y2 DOUBLE NOT NULL,\n" +
+                "    z2 DOUBLE NOT NULL,\n" +
+                "    color TEXT NOT NULL,\n" +
+                "    command TEXT\n" +
+                ")",
+
             // Allies table
-            """
-            CREATE TABLE IF NOT EXISTS allies (
-                faction1 TEXT NOT NULL,
-                faction2 TEXT NOT NULL,
-                PRIMARY KEY (faction1, faction2)
-            )
-            """,
-            
+            "CREATE TABLE IF NOT EXISTS allies (\n" +
+                "    faction1 TEXT NOT NULL,\n" +
+                "    faction2 TEXT NOT NULL,\n" +
+                "    PRIMARY KEY (faction1, faction2)\n" +
+                ")",
+
             // Protected chunks table
-            """
-            CREATE TABLE IF NOT EXISTS protected_chunks (
-                faction_name TEXT NOT NULL,
-                world_name TEXT NOT NULL,
-                chunk_x INTEGER NOT NULL,
-                chunk_z INTEGER NOT NULL,
-                shield_health INTEGER NOT NULL,
-                PRIMARY KEY (world_name, chunk_x, chunk_z)
-            )
-            """,
-            
+            "CREATE TABLE IF NOT EXISTS protected_chunks (\n" +
+                "    faction_name TEXT NOT NULL,\n" +
+                "    world_name TEXT NOT NULL,\n" +
+                "    chunk_x INTEGER NOT NULL,\n" +
+                "    chunk_z INTEGER NOT NULL,\n" +
+                "    shield_health INTEGER NOT NULL,\n" +
+                "    PRIMARY KEY (world_name, chunk_x, chunk_z)\n" +
+                ")",
+
             // Member permissions table
-            """
-            CREATE TABLE IF NOT EXISTS member_permissions (
-                faction_name TEXT NOT NULL,
-                permission TEXT NOT NULL,
-                value BOOLEAN NOT NULL,
-                PRIMARY KEY (faction_name, permission)
-            )
-            """,
-            
+            "CREATE TABLE IF NOT EXISTS member_permissions (\n" +
+                "    faction_name TEXT NOT NULL,\n" +
+                "    permission TEXT NOT NULL,\n" +
+                "    value BOOLEAN NOT NULL,\n" +
+                "    PRIMARY KEY (faction_name, permission)\n" +
+                ")",
+
             // Ally permissions table
-            """
-            CREATE TABLE IF NOT EXISTS ally_permissions (
-                faction_name TEXT NOT NULL,
-                permission TEXT NOT NULL,
-                value BOOLEAN NOT NULL,
-                PRIMARY KEY (faction_name, permission)
-            )
-            """,
-            
+            "CREATE TABLE IF NOT EXISTS ally_permissions (\n" +
+                "    faction_name TEXT NOT NULL,\n" +
+                "    permission TEXT NOT NULL,\n" +
+                "    value BOOLEAN NOT NULL,\n" +
+                "    PRIMARY KEY (faction_name, permission)\n" +
+                ")",
+
             // Shield reactor table
-            """
-            CREATE TABLE IF NOT EXISTS shield_reactor (
-                faction_name TEXT PRIMARY KEY,
-                health INTEGER NOT NULL DEFAULT 0,
-                last_damage_time BIGINT
-            )
-            """
+            "CREATE TABLE IF NOT EXISTS shield_reactor (\n" +
+                "    faction_name TEXT PRIMARY KEY,\n" +
+                "    health INTEGER NOT NULL DEFAULT 0,\n" +
+                "    last_damage_time BIGINT\n" +
+                ")"
         };
 
         try (Connection conn = connect();
@@ -192,10 +172,8 @@ public class DatabaseManager {
 
     // Player Methods
     public void savePlayerData(String uuid, String name, String faction, String rank, Location home, Instant lastLogin, long onlineTime) {
-        String sql = """
-            INSERT OR REPLACE INTO players (uuid, name, faction_id, rank, last_login, online_time)
-            VALUES (?, ?, (SELECT id FROM factions WHERE name = ?), ?, ?, ?)
-        """;
+        String sql = "INSERT OR REPLACE INTO players (uuid, name, faction_id, rank, last_login, online_time)\n" +
+            "VALUES (?, ?, (SELECT id FROM factions WHERE name = ?), ?, ?, ?)";
         
         try (Connection conn = connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -216,13 +194,11 @@ public class DatabaseManager {
     }
 
     public PlayerDataModel loadPlayerData(String uuid) {
-        String sql = """
-            SELECT p.uuid, f.name as faction, p.rank, h.world, h.x, h.y, h.z, h.yaw, h.pitch, p.last_login, p.online_time
-            FROM players p
-            LEFT JOIN factions f ON p.faction_id = f.id
-            LEFT JOIN homes h ON p.uuid = h.player_uuid
-            WHERE p.uuid = ?
-        """;
+        String sql = "SELECT p.uuid, f.name as faction, p.rank, h.world, h.x, h.y, h.z, h.yaw, h.pitch, p.last_login, p.online_time\n" +
+            "FROM players p\n" +
+            "LEFT JOIN factions f ON p.faction_id = f.id\n" +
+            "LEFT JOIN homes h ON p.uuid = h.player_uuid\n" +
+            "WHERE p.uuid = ?";
         
         try (Connection conn = connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -260,10 +236,8 @@ public class DatabaseManager {
             return;
         }
 
-        String sql = """
-            INSERT OR REPLACE INTO players (uuid, name, faction_id, rank, last_login)
-            VALUES (?, ?, (SELECT id FROM factions WHERE name = ?), ?, ?)
-        """;
+        String sql = "INSERT OR REPLACE INTO players (uuid, name, faction_id, rank, last_login)\n" +
+            "VALUES (?, ?, (SELECT id FROM factions WHERE name = ?), ?, ?)";
         
         try (Connection conn = connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -279,12 +253,10 @@ public class DatabaseManager {
     }
 
     public String getPlayerFaction(String uuid) {
-        String sql = """
-            SELECT f.name
-            FROM players p
-            JOIN factions f ON p.faction_id = f.id
-            WHERE p.uuid = ?
-        """;
+        String sql = "SELECT f.name\n" +
+            "FROM players p\n" +
+            "JOIN factions f ON p.faction_id = f.id\n" +
+            "WHERE p.uuid = ?";
         
         try (Connection conn = connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -301,11 +273,9 @@ public class DatabaseManager {
 
     // Faction Methods
     public void saveFaction(Faction faction) {
-        String sql = """
-            UPDATE factions
-            SET leader = ?, vault_balance = ?, kills = ?
-            WHERE name = ?
-        """;
+        String sql = "UPDATE factions\n" +
+            "SET leader = ?, vault_balance = ?, kills = ?\n" +
+            "WHERE name = ?";
         
         try (Connection conn = connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -320,10 +290,8 @@ public class DatabaseManager {
     }
 
     public void createFaction(Faction faction) {
-        String sql = """
-            INSERT INTO factions (name, leader, vault_balance, kills)
-            VALUES (?, ?, ?, ?)
-        """;
+        String sql = "INSERT INTO factions (name, leader, vault_balance, kills)\n" +
+            "VALUES (?, ?, ?, ?)";
         
         try (Connection conn = connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -367,11 +335,9 @@ public class DatabaseManager {
     }
 
     private void loadFactionMembers(Connection conn, Faction faction) throws SQLException {
-        String sql = """
-            SELECT name 
-            FROM players 
-            WHERE faction_id = (SELECT id FROM factions WHERE name = ?)
-        """;
+        String sql = "SELECT name \n" +
+            "FROM players \n" +
+            "WHERE faction_id = (SELECT id FROM factions WHERE name = ?)";
         
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, faction.getName());
@@ -385,10 +351,8 @@ public class DatabaseManager {
 
     // Warp Methods
     public void saveWarp(String name, Location location) {
-        String sql = """
-            INSERT OR REPLACE INTO warps (name, world, x, y, z, yaw, pitch)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        """;
+        String sql = "INSERT OR REPLACE INTO warps (name, world, x, y, z, yaw, pitch)\n" +
+            "VALUES (?, ?, ?, ?, ?, ?, ?)";
         
         try (Connection conn = connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -460,10 +424,8 @@ public class DatabaseManager {
 
     // Home Methods
     public void saveHome(String playerUuid, Location location) {
-        String sql = """
-            INSERT OR REPLACE INTO homes (player_uuid, world, x, y, z, yaw, pitch)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        """;
+        String sql = "INSERT OR REPLACE INTO homes (player_uuid, world, x, y, z, yaw, pitch)\n" +
+            "VALUES (?, ?, ?, ?, ?, ?, ?)";
         
         try (Connection conn = connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -552,13 +514,11 @@ public class DatabaseManager {
 
     public List<String> getFactionPlayers(String factionName) {
         List<String> players = new ArrayList<>();
-        String sql = """
-            SELECT p.name
-            FROM players p
-            JOIN factions f ON p.faction_id = f.id
-            WHERE LOWER(f.name) = LOWER(?)
-            ORDER BY p.name
-        """;
+        String sql = "SELECT p.name\n" +
+            "FROM players p\n" +
+            "JOIN factions f ON p.faction_id = f.id\n" +
+            "WHERE LOWER(f.name) = LOWER(?)\n" +
+            "ORDER BY p.name";
         
         try (Connection conn = connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -603,14 +563,12 @@ public class DatabaseManager {
     }
 
     public String getFactionWithLeastPlayers() {
-        String sql = """
-            SELECT f.name, COUNT(p.uuid) as player_count
-            FROM factions f
-            LEFT JOIN players p ON f.id = p.faction_id
-            GROUP BY f.id
-            ORDER BY player_count ASC
-            LIMIT 1
-        """;
+        String sql = "SELECT f.name, COUNT(p.uuid) as player_count\n" +
+            "FROM factions f\n" +
+            "LEFT JOIN players p ON f.id = p.faction_id\n" +
+            "GROUP BY f.id\n" +
+            "ORDER BY player_count ASC\n" +
+            "LIMIT 1";
         
         try (Connection conn = connect();
              Statement stmt = conn.createStatement();
@@ -631,14 +589,12 @@ public class DatabaseManager {
             return;
         }
 
-        String sql = """
-            UPDATE players 
-            SET faction_id = (SELECT id FROM factions WHERE name = ?),
-                name = ?,
-                rank = ?,
-                last_login = ?
-            WHERE uuid = ?
-        """;
+        String sql = "UPDATE players \n" +
+            "SET faction_id = (SELECT id FROM factions WHERE name = ?),\n" +
+            "    name = ?,\n" +
+            "    rank = ?,\n" +
+            "    last_login = ?\n" +
+            "WHERE uuid = ?";
         
         try (Connection conn = connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -650,10 +606,8 @@ public class DatabaseManager {
             
             if (pstmt.executeUpdate() == 0) {
                 // Player doesn't exist, insert new record
-                sql = """
-                    INSERT INTO players (uuid, name, faction_id, rank, last_login)
-                    VALUES (?, ?, (SELECT id FROM factions WHERE name = ?), ?, ?)
-                """;
+                sql = "INSERT INTO players (uuid, name, faction_id, rank, last_login)\n" +
+                    "VALUES (?, ?, (SELECT id FROM factions WHERE name = ?), ?, ?)";
                 try (PreparedStatement insertStmt = conn.prepareStatement(sql)) {
                     insertStmt.setString(1, uuid);
                     insertStmt.setString(2, playerName);
@@ -731,12 +685,10 @@ public class DatabaseManager {
     }
 
     public void deleteFactionIfEmpty(String factionName) {
-        String sql = """
-            DELETE FROM factions
-            WHERE name = ?
-            AND vault_balance = 0
-            AND (SELECT COUNT(*) FROM players WHERE faction_id = (SELECT id FROM factions WHERE name = ?)) = 0
-        """;
+        String sql = "DELETE FROM factions\n" +
+            "WHERE name = ?\n" +
+            "AND vault_balance = 0\n" +
+            "AND (SELECT COUNT(*) FROM players WHERE faction_id = (SELECT id FROM factions WHERE name = ?)) = 0";
         
         try (Connection conn = connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -958,10 +910,8 @@ public class DatabaseManager {
     }
 
     public void saveShieldReactorData(Map<String, Integer> reactorHealth, Map<String, Long> lastDamageTime) {
-        String sql = """
-            INSERT OR REPLACE INTO shield_reactor (faction_name, health, last_damage_time)
-            VALUES (?, ?, ?)
-        """;
+        String sql = "INSERT OR REPLACE INTO shield_reactor (faction_name, health, last_damage_time)\n" +
+            "VALUES (?, ?, ?)";
 
         try (Connection conn = connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -1014,32 +964,5 @@ public class DatabaseManager {
             plugin.getLogger().error("Failed to load shield reactor damage times", e);
         }
         return lastDamageTime;
-    }
-
-    public boolean playerHasDragon(String uuid) {
-        String sql = "SELECT has_dragon FROM players WHERE uuid = ?";
-        try (Connection conn = connect();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, uuid);
-            ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) {
-                return rs.getBoolean("has_dragon");
-            }
-        } catch (SQLException e) {
-            plugin.getLogger().error("Failed to check if player has dragon", e);
-        }
-        return false;
-    }
-
-    public void setPlayerHasDragon(String uuid, boolean hasDragon) {
-        String sql = "UPDATE players SET has_dragon = ? WHERE uuid = ?";
-        try (Connection conn = connect();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setBoolean(1, hasDragon);
-            pstmt.setString(2, uuid);
-            pstmt.executeUpdate();
-        } catch (SQLException e) {
-            plugin.getLogger().error("Failed to set player dragon ownership", e);
-        }
     }
 }

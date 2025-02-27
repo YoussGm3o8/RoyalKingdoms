@@ -6,7 +6,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import com.roki.core.Entities.Minotaur;
-import com.roki.core.Entities.PhoenixEntity;
 import com.roki.core.Portals.PortalEventListener;
 import com.roki.core.chunkProtection.FactionShieldManager;
 import com.roki.core.commands.FactionCommandController;
@@ -80,7 +79,7 @@ public class RoyalKingdomsCore extends PluginBase implements Listener {
             }
     
             // Entities registration
-            EntityManager.get().registerDefinition(PhoenixEntity.DEFINITION);
+            // Remove any code registering or using PhoenixEntity
             EntityManager.get().registerDefinition(Minotaur.DEFINITION);
         }
     
@@ -210,61 +209,6 @@ public class RoyalKingdomsCore extends PluginBase implements Listener {
                     return commandController.handleBordersCommand(player);
                 }
             });
-
-            getServer().getCommandMap().register("summondragon", new Command("summondragon", "Summon or buy a dragon", "/summondragon [buy]") {
-                @Override
-                public boolean execute(CommandSender sender, String commandLabel, String[] args) {
-                    if (!(sender instanceof Player)) {
-                        sender.sendMessage("This command can only be used by players.");
-                        return true;
-                    }
-
-                    Player player = (Player) sender;
-                    if (args.length > 0 && args[0].equalsIgnoreCase("buy")) {
-                        return handleBuyDragonCommand(player);
-                    } else {
-                        return handleSummonDragonCommand(player);
-                    }
-                }
-            });
-    
-            this.getServer().getPluginManager().registerEvents(this, this);
-        }
-
-        private boolean handleBuyDragonCommand(Player player) {
-            String playerUUID = player.getUniqueId().toString();
-            if (dbManager.playerHasDragon(playerUUID)) {
-                player.sendMessage("§cYou already own a dragon.");
-                return true;
-            }
-
-            double dragonCost = 64000;
-            double playerBalance = EconomyAPI.getInstance().myMoney(player);
-            if (playerBalance < dragonCost) {
-                player.sendMessage("§cYou do not have enough money to buy a dragon. It costs $64,000.");
-                return true;
-            }
-
-            EconomyAPI.getInstance().reduceMoney(player, dragonCost);
-            dbManager.setPlayerHasDragon(playerUUID, true);
-            player.sendMessage("§aYou have successfully bought a dragon! Use /summondragon to summon it.");
-            return true;
-        }
-
-        private boolean handleSummonDragonCommand(Player player) {
-            String playerUUID = player.getUniqueId().toString();
-            if (!dbManager.playerHasDragon(playerUUID)) {
-                player.sendMessage("§cYou do not own a dragon. Use /summondragon buy to buy one for $64,000.");
-                return true;
-            }
-
-            // Summon the dragon (PhoenixEntity)
-            PhoenixEntity dragon = new PhoenixEntity(player.getLevel().getChunk(player.getChunkX(), player.getChunkZ()), PhoenixEntity.getDefaultNBT(player));
-            dragon.setOwner(player);
-            dragon.spawnToAll();
-
-            player.sendMessage("§aYour dragon has been summoned!");
-            return true;
         }
     
         public ScoreboardManager getScoreboardManager() {
@@ -319,12 +263,7 @@ public class RoyalKingdomsCore extends PluginBase implements Listener {
             }
     
             if (command.getName().equals("summondragon")) {
-                Entity entity = Entity.createEntity(PhoenixEntity.IDENTIFIER, (Player) player);
-                if (entity != null) {
-                    entity.spawnToAll();
-                    player.sendMessage("Dragon summoned!");
-                    return true;
-                }
+                // Remove any code registering or using PhoenixEntity
             }
     
             if (command.getName().equals("summonminotaur")) {

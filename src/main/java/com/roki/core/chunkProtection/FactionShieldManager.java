@@ -33,10 +33,10 @@ import cn.nukkit.level.particle.FloatingTextParticle;
 import cn.nukkit.math.Vector3;
 import cn.nukkit.network.protocol.TextPacket;
 import cn.nukkit.scheduler.NukkitRunnable;
+
 import me.onebone.economyapi.EconomyAPI;
 
 import com.roki.core.RoyalKingdomsCore;
-import com.roki.core.Entities.PhoenixEntity;
 import com.roki.core.database.DatabaseManager;
 import com.roki.core.PlayerData;
 import com.roki.core.Faction;
@@ -225,23 +225,16 @@ public class FactionShieldManager implements Listener {
         String factionName = db.getPlayerFaction(player.getUniqueId().toString());
         if (factionName == null || !factionName.equals(chunk.getFactionName())) {
             if (factionName == null || !getAllyPermission(player, "enter_chunk")) {
-                if (player.getRiding() != null && player.getRiding() instanceof PhoenixEntity) {
-                    // Block the Phoenix from moving through the shield
-                    event.setCancelled(true);
-                    showShieldImpact(event.getTo()); // Add impact effect where player hits shield
-                    showShieldBeacons(chunk); // Add corner beacons
-                    player.sendMessage("§cYour Dragon cannot fly through the faction shield.");
-                } else {
-                    player.sendMessage("§cYou cannot enter this chunk. It is protected by a faction shield.");
-                    showShieldImpact(event.getTo()); // Add impact effect where player hits shield
-                    showShieldBeacons(chunk); // Add corner beacons
-                    event.setCancelled(true);
-                }
-            } else {
+                player.sendMessage("§cYou cannot enter this chunk. It is protected by a faction shield.");
+                showShieldImpact(event.getTo()); // Add impact effect where player hits shield
+                showShieldBeacons(chunk); // Add corner beacons
+                event.setCancelled(true);
+            }
+        } 
+        else {
                 notifyPlayerOfShield(player);
             }
         }
-    }
 
     @EventHandler
     public void onEntityExplode(EntityExplodeEvent event) {
