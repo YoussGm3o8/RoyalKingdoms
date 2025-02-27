@@ -17,6 +17,7 @@ com\roki\core\database\DatabaseManager.class
 com\roki\core\RoyalKingdomsCore$3.class
 com\roki\core\chunkProtection\FactionShieldManager$1.class
 com\roki\core\Entities\EventListenerEdit.class
+com\roki\core\RoyalKingdomsCore$4.class
 com\roki\core\chunkProtection\FactionShieldManager$ShieldHealthAnimation.class
 com\roki\core\PlayerData.class
 com\roki\core\commands\FactionCommandController$ChatMode.class

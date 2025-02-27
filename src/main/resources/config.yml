@@ -1,0 +1,68 @@
+# Royal Kingdoms Core Configuration
+
+# Spawn settings
+spawn:
+  world: "world"
+  x: 0
+  y: 64
+  z: 0
+  yaw: 0
+  pitch: 0
+  radius: 50  # Radius for instant teleport zone
+
+# Wild command settings
+wild:
+  world: "world"  # World to teleport players to
+  bounds:
+    pos1:
+      x: -1000
+      z: -1000
+    pos2:
+      x: 1000
+      z: 1000
+  retry_attempts: 10  # Number of attempts to find a safe location
+  cooldown: 300       # Cooldown in seconds (5 minutes)
+
+# Teleportation settings
+teleport:
+  delay: 5           # Delay in seconds for teleport commands when outside spawn
+  commands:          # List of commands that trigger the teleport delay
+    - "warp"
+    - "wild"
+    - "spawn"
+    - "home"
+    - "tpa"
+    - "tp"
+    - "lobby"
+
+# Combat settings
+combat:
+  tag_duration: 15    # Combat tag duration in seconds
+  display_message: true # Whether to display combat messages
+
+# Cooldowns
+cooldowns:
+  golden_apple: 10     # Golden apple cooldown in seconds
+  enchanted_golden_apple: 30  # Enchanted golden apple cooldown in seconds
+
+# Scoreboard settings
+scoreboard:
+  enable_on_join: true
+  update_interval: 20   # Ticks between scoreboard updates (1 second = 20 ticks)
+  pvp:
+    enabled: true       # Whether to enable the PVP scoreboard
+    show_enemy_ping: true
+    show_cooldowns: true
+
+# Database settings
+database:
+  type: "sqlite"       # Database type (sqlite or mysql)
+  path: "database.db"  # Path for SQLite database
+  # MySQL settings (only used if type is mysql)
+  mysql:
+    host: "localhost"
+    port: 3306
+    database: "royalkingdoms"
+    username: "root"
+    password: ""
+    options: "?useSSL=false&autoReconnect=true"

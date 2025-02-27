@@ -2,7 +2,6 @@ package com.roki.core.commands;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.List;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -10,7 +9,6 @@ import java.sql.Statement;
 
 import com.roki.core.RoyalKingdomsCore;
 import com.roki.core.database.DatabaseManager;
-import com.roki.core.database.DataModel;
 
 import cn.nukkit.Player;
 import cn.nukkit.event.player.PlayerInteractEvent;
@@ -18,9 +16,7 @@ import cn.nukkit.event.player.PlayerMoveEvent;
 import cn.nukkit.item.Item;
 import cn.nukkit.level.Position;
 import cn.nukkit.utils.Config;
-import cn.nukkit.plugin.PluginBase;
 import cn.nukkit.level.particle.DustParticle;
-import cn.nukkit.level.particle.SpellParticle;
 import cn.nukkit.math.Vector3;
 import cn.nukkit.scheduler.Task;
 
@@ -199,6 +195,7 @@ public class PortalCommandController {
         Position playerPos = player.getLocation();
     
         for (String portalName : portalConfig.getKeys(false)) {
+            @SuppressWarnings("unchecked")
             Map<String, Object> portalData = (Map<String, Object>) portalConfig.get(portalName);
             
             // Verify portal is in the same world

@@ -12,7 +12,6 @@ import java.util.*;
 public class DatabaseManager {
     private final String url;
     private final RoyalKingdomsCore plugin;
-    private Connection connection;
 
     public DatabaseManager(RoyalKingdomsCore plugin) {
         this.plugin = plugin;
@@ -194,7 +193,7 @@ public class DatabaseManager {
     }
 
     public PlayerDataModel loadPlayerData(String uuid) {
-        String sql = "SELECT p.uuid, f.name as faction, p.rank, h.world, h.x, h.y, h.z, h.yaw, h.pitch, p.last_login, p.online_time\n" +
+        String sql = "SELECT p.uuid, p.name, f.name as faction, p.rank, h.world, h.x, h.y, h.z, h.yaw, h.pitch, p.last_login, p.online_time\n" +
             "FROM players p\n" +
             "LEFT JOIN factions f ON p.faction_id = f.id\n" +
             "LEFT JOIN homes h ON p.uuid = h.player_uuid\n" +
@@ -206,6 +205,7 @@ public class DatabaseManager {
             ResultSet rs = pstmt.executeQuery();
             
             if (rs.next()) {
+                String playerName = rs.getString("name");
                 String faction = rs.getString("faction");
                 String rank = rs.getString("rank");
                 Location home = null;
@@ -222,7 +222,7 @@ public class DatabaseManager {
                 Instant lastLogin = rs.getTimestamp("last_login") != null ? rs.getTimestamp("last_login").toInstant() : null;
                 long onlineTime = rs.getLong("online_time");
 
-                return new PlayerDataModel(uuid, faction, rank, home, lastLogin, onlineTime);
+                return new PlayerDataModel(uuid, playerName, faction, rank, home, lastLogin, onlineTime);
             }
         } catch (SQLException e) {
             plugin.getLogger().error("Failed to load player data", e);

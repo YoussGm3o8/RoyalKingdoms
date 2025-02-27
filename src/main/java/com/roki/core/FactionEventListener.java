@@ -1,8 +1,12 @@
 package com.roki.core;
 
 import cn.nukkit.Player;
+import cn.nukkit.entity.Entity;
 import cn.nukkit.event.EventHandler;
+import cn.nukkit.event.EventPriority;
 import cn.nukkit.event.Listener;
+import cn.nukkit.event.entity.EntityDamageByEntityEvent;
+import cn.nukkit.event.entity.EntityDamageEvent;
 import cn.nukkit.event.entity.EntityExplodeEvent;
 import cn.nukkit.event.player.PlayerChatEvent;
 import cn.nukkit.event.player.PlayerDeathEvent;
@@ -10,14 +14,19 @@ import cn.nukkit.event.player.PlayerJoinEvent;
 import cn.nukkit.event.player.PlayerMoveEvent;
 import cn.nukkit.event.player.PlayerQuitEvent;
 import cn.nukkit.event.player.PlayerFormRespondedEvent;
+import cn.nukkit.event.player.PlayerItemConsumeEvent;
 import cn.nukkit.form.response.FormResponseSimple;
 import cn.nukkit.form.response.FormResponseCustom;
 import cn.nukkit.form.window.FormWindowSimple;
 import cn.nukkit.form.window.FormWindowCustom;
 import cn.nukkit.level.Level;
+import cn.nukkit.level.Location;
 import cn.nukkit.event.block.BlockBreakEvent;
 import cn.nukkit.event.block.BlockPlaceEvent;
+import cn.nukkit.item.Item;
+import cn.nukkit.utils.TextFormat;
 
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -33,32 +42,72 @@ public class FactionEventListener implements Listener {
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
         
+        // Load or create player data
+        String uuid = player.getUniqueId().toString();
+        PlayerDataManager playerDataManager = plugin.getPlayerDataManager();
+        PlayerData playerData = playerDataManager.getPlayerData(uuid);
+        
+        if (playerData == null) {
+            // Create new player data
+            playerData = new PlayerData(uuid, player.getName(), null, "Member", null, Instant.now(), 0);
+            playerDataManager.addPlayerData(playerData);
+        } else {
+            // Update last login time
+            playerData.setLastLogin(Instant.now());
+        }
+        
         // Get faction from PlayerData
         Faction faction = plugin.getPlayerFaction(player);
 
-        // Create or update the player's scoreboard
-        plugin.getScoreboardManager().createScoreboard(player);
+        // Create or update the player's scoreboard if enabled in config
+        if (plugin.getConfig().getBoolean("scoreboard.enable_on_join", true)) {
+            plugin.getScoreboardManager().createScoreboard(player);
+        }
 
         // Send a welcome message
         if (faction != null) {
-            player.sendMessage("§7Welcome back to the " + faction.getName() + " §7faction!");
+            player.sendMessage(TextFormat.GRAY + "Welcome back to the " + faction.getName() + TextFormat.GRAY + " faction!");
         } else {
-            player.sendMessage("§7Welcome to the Royal Kingdoms MCBE Vanilla Factions server! Create a faction with /f create <name>, or join an existing faction with /f join <name> by getting an invite from another player.");
+            player.sendMessage(TextFormat.GRAY + "Welcome to the Royal Kingdoms MCBE Vanilla Factions server! Create a faction with /f create <name>, or join an existing faction with /f join <name> by getting an invite from another player.");
         }
     }
 
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
-        // Player player = event.getPlayer();
+        Player player = event.getPlayer();
         
-        // // Save player data to the database when they leave
-        // PlayerDataManager playerDataManager = plugin.getPlayerDataManager();
-        // PlayerData playerData = playerDataManager.getPlayerData(player);
-        // playerData.savePlayerData(); // Ensure player data is saved
-        // playerDataManager.saveAndRemove(player);
+        // Check if player is combat tagged
+        PlayerData playerData = plugin.getPlayerDataManager().getPlayerData(player.getUniqueId().toString());
+        if (playerData != null && playerData.isInCombat()) {
+            // Combat logging penalty
+            player.kill(); // Kill the player
+            plugin.getServer().broadcastMessage(TextFormat.RED + player.getName() + " combat logged and was punished!");
+        }
         
-        // // Ensure all data is saved before the player is removed
-        // playerDataManager.saveAll();
+        // Remove scoreboard
+        plugin.getScoreboardManager().removeScoreboard(player);
+        plugin.getScoreboardManager().removePvpScoreboard(player);
+    }
+
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
+        // Handle combat between players
+        if (!plugin.getCombatManager().handleCombat(event)) {
+            event.setCancelled(true);
+        }
+    }
+    
+    @EventHandler
+    public void onPlayerDamage(EntityDamageEvent event) {
+        if (event.getEntity() instanceof Player && !event.isCancelled()) {
+            Player player = (Player) event.getEntity();
+            
+            // Update PVP scoreboard if player has it enabled
+            PlayerData playerData = plugin.getPlayerDataManager().getPlayerData(player.getUniqueId().toString());
+            if (playerData != null && playerData.isPvpScoreboardEnabled()) {
+                plugin.getScoreboardManager().updatePvpScoreboard(player);
+            }
+        }
     }
 
     @EventHandler
@@ -68,16 +117,52 @@ public class FactionEventListener implements Listener {
 
     @EventHandler
     public void onPlayerMove(PlayerMoveEvent event) {
+        // Don't process if the event is cancelled already
+        if (event.isCancelled()) return;
+        
+        Player player = event.getPlayer();
+        
+        // Check if player changed block position (not just looking around)
+        if (event.getFrom().getFloorX() == event.getTo().getFloorX() && 
+            event.getFrom().getFloorY() == event.getTo().getFloorY() && 
+            event.getFrom().getFloorZ() == event.getTo().getFloorZ()) {
+            return; // Just looking around, not moving position
+        }
+        
+        // Handle teleportation cancellation on movement
+        plugin.getTeleportManager().handlePlayerMove(player);
+        
+        // Handle faction territory notifications
         try {
             plugin.getFactionShieldManager().onPlayerMove(event);
         } catch (Exception e) {
-            plugin.getLogger().error("Error handling PlayerMoveEvent", e);
+            plugin.getLogger().error("Error handling PlayerMoveEvent in FactionShieldManager", e);
         }
     }
 
     @EventHandler
     public void onPlayerDeath(PlayerDeathEvent event) {
-        handlePlayerDeath(event);
+        Player player = event.getEntity();
+        if (player != null) {
+            // Remove combat tag on death
+            PlayerData playerData = plugin.getPlayerDataManager().getPlayerData(player.getUniqueId().toString());
+            if (playerData != null) {
+                playerData.removeCombatTag();
+            }
+            
+            // Credit kill to killer faction if applicable
+            Entity killerEntity = player.getKiller();
+            if (killerEntity instanceof Player) {
+                Player killer = (Player) killerEntity;
+                Faction killerFaction = plugin.getPlayerFaction(killer);
+                if (killerFaction != null) {
+                    killerFaction.incrementKills();
+                }
+            }
+            
+            // Handle default death behavior
+            handlePlayerDeath(event);
+        }
     }
 
     @EventHandler
@@ -86,6 +171,19 @@ public class FactionEventListener implements Listener {
         String message = event.getMessage();
         plugin.getCommandController().handlePlayerChat(player, message);
         event.setCancelled(true);
+    }
+    
+    @EventHandler(priority = EventPriority.LOW)
+    public void onPlayerItemConsume(PlayerItemConsumeEvent event) {
+        if (event.isCancelled()) return;
+        
+        Player player = event.getPlayer();
+        Item item = event.getItem();
+        
+        // Handle golden apple cooldowns
+        if (!plugin.getCombatManager().handleItemConsumption(player, item)) {
+            event.setCancelled(true);
+        }
     }
 
     @EventHandler
@@ -98,8 +196,7 @@ public class FactionEventListener implements Listener {
                 return;
             }
             processedResponses.add(response.hashCode());
-            plugin.getLogger().info("FormWindowSimple Title: " + window.getTitle());
-            plugin.getLogger().info("FormWindowSimple Response: " + response.getClickedButton().getText());
+            
             if (window.getTitle().equals("Faction Management")) {
                 plugin.getCommandController().handleGuiResponse(event.getPlayer(), response);
             } else if (window.getTitle().equals("Faction Invites")) {
@@ -145,8 +242,7 @@ public class FactionEventListener implements Listener {
                 return;
             }
             processedResponses.add(response.hashCode());
-            plugin.getLogger().info("FormWindowCustom Title: " + window.getTitle());
-            plugin.getLogger().info("FormWindowCustom Response: " + response.getInputResponse(0));
+            
             if (window.getTitle().equals("Create Faction")) {
                 plugin.getCommandController().handleCreateFactionFormResponse(event.getPlayer(), response);
             } else if (window.getTitle().equals("Deposit Money")) {
@@ -187,12 +283,25 @@ public class FactionEventListener implements Listener {
     private void handlePlayerDeath(PlayerDeathEvent event) {
         Player player = event.getEntity();
         if (player != null) {
-            Level lobby = plugin.getServer().getLevelByName("Lobby");
-            if (lobby != null) {
-                player.teleport(lobby.getSpawnLocation());
-                player.sendMessage("§aYou have been teleported to the Lobby.");
-            } else {
-                player.sendMessage("§cLobby world not found.");
+            // Custom respawn location - try spawn first, then default world spawn
+            try {
+                Location spawnLocation = plugin.getTeleportManager().getSpawnLocation();
+                if (spawnLocation != null) {
+                    player.teleport(spawnLocation);
+                    player.sendMessage(TextFormat.GREEN + "You have been teleported to spawn.");
+                } else {
+                    Level defaultLevel = plugin.getServer().getDefaultLevel();
+                    if (defaultLevel != null) {
+                        player.teleport(defaultLevel.getSpawnLocation());
+                        player.sendMessage(TextFormat.GREEN + "You have been teleported to the world spawn.");
+                    }
+                }
+            } catch (Exception e) {
+                plugin.getLogger().error("Error teleporting player after death", e);
+                Level defaultLevel = plugin.getServer().getDefaultLevel();
+                if (defaultLevel != null) {
+                    player.teleport(defaultLevel.getSpawnLocation());
+                }
             }
         }
     }
